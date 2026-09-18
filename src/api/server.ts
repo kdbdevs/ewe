@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { readFileSync, existsSync, statSync, mkdirSync, writeFileSync, renameSync, openSync, closeSync, fsyncSync } from 'node:fs';
 import { resolve, extname, sep, dirname } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -248,8 +248,9 @@ const mime: Record<string, string> = { '.html': 'text/html', '.js': 'text/javasc
 const server = http.createServer(async (req, res) => {
   try {
     const host = req.headers.host || '';
+    if (!isAuthorized(req)) return authenticationRequired(res);
     if (!/^127\.0\.0\.1:\d+$/.test(host)) return json(res, 403, { error: 'Loopback host required' });
-    if (req.headers.origin && ![`http://${host}`, 'http://127.0.0.1:5173'].includes(req.headers.origin)) return json(res, 403, { error: 'Origin not allowed' });
+    if (req.headers.origin && !allowedOrigins(req, host).has(String(req.headers.origin))) return json(res, 403, { error: 'Origin not allowed' });
     const path = new URL(req.url!, `http://${host}`).pathname;
     if (path.startsWith('/api/')) return await api(req, res, path);
     if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'Method not allowed' });
@@ -263,6 +264,39 @@ const server = http.createServer(async (req, res) => {
     else { console.error(error); json(res, 500, { error: 'Storage or server failure' }); }
   }
 });
+
+function allowedOrigins(req: http.IncomingMessage, host: string): Set<string> {
+  const origins = new Set([`http://${host}`, 'http://127.0.0.1:5173']);
+  const forwardedHost = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+  if (forwardedHost) {
+    origins.add(`https://${forwardedHost}`);
+    origins.add(`http://${forwardedHost}`);
+  }
+  return origins;
+}
+
+function isAuthorized(req: http.IncomingMessage): boolean {
+  const user = process.env.EWE_BASIC_USER || '';
+  const pass = process.env.EWE_BASIC_PASS || '';
+  if (!user && !pass) return true;
+  const header = String(req.headers.authorization || '');
+  if (!header.startsWith('Basic ')) return false;
+  let decoded = '';
+  try { decoded = Buffer.from(header.slice(6), 'base64').toString('utf8'); }
+  catch { return false; }
+  const expected = Buffer.from(`${user}:${pass}`);
+  const received = Buffer.from(decoded);
+  return expected.length === received.length && timingSafeEqual(expected, received);
+}
+
+function authenticationRequired(res: http.ServerResponse) {
+  res.writeHead(401, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'WWW-Authenticate': 'Basic realm="Hermes Workflow Lab"',
+  });
+  res.end('Authentication required\n');
+}
 server.listen(Number(values.port), '127.0.0.1', () => {
   const address = server.address();
   if (address && typeof address !== 'string') console.log(`eWe http://127.0.0.1:${address.port}`);
