@@ -20,6 +20,8 @@ import { useExecution } from './editor/useExecution';
 import KeyboardHelp from './editor/KeyboardHelp';
 import { workflowTemplates } from './templates';
 import ExecutionSummary from './editor/ExecutionSummary';
+import ProductionSafetyPanel from './editor/ProductionSafetyPanel';
+import { analyzeWorkflowSafety, hasBlockingSafetyRisk } from './safety';
 
 const nodeTypes = { ewe: EweNode };
 type AppNode = Node<{ node: WorkflowNode }, 'ewe'>;
@@ -87,6 +89,8 @@ export default function App() {
       markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
     };
   }), [edges, executionByNode]);
+  const safetySnapshot = useMemo(() => workflow ? serialise(nodes, edges, workflow, viewport) : undefined, [nodes, edges, workflow, viewport]);
+  const safetyFindings = useMemo(() => safetySnapshot ? analyzeWorkflowSafety(safetySnapshot) : [], [safetySnapshot]);
 
   // ─── Keyboard shortcuts ────────────────────────────────────────
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
@@ -113,8 +117,16 @@ export default function App() {
 
   const execute = () => {
     if (!workflow) return;
+    const snapshot = serialise(nodes, edges, workflow, viewport);
+    const invalid = validateWorkflow(snapshot);
+    if (invalid) { setMessage(invalid); return; }
+    const findings = analyzeWorkflowSafety(snapshot);
+    if (hasBlockingSafetyRisk(findings) && !window.confirm(`Production safety review required: ${findings.filter(finding => finding.severity === 'high').length} high-risk item(s). Run once anyway?`)) {
+      setMessage('Run cancelled by production safety gate');
+      return;
+    }
     void run(async () => {
-      const saved = await api.save(serialise(nodes, edges, workflow, viewport));
+      const saved = await api.save(snapshot);
       setWorkflow(saved); setDirty(false); await refreshList(); await start(saved.id);
     });
   };
@@ -348,6 +360,7 @@ export default function App() {
             </ReactFlow>
           </div>
           <div className="ewe-inspector">
+            {workflow && <ProductionSafetyPanel findings={safetyFindings} onFocusNode={setSelectedNodeId} />}
             {workflow && <ExecutionSummary execution={execution} onFocusNode={setSelectedNodeId} />}
             {workflow && <ActivityPanel items={activityEvents} status={execution?.status} />}
             {workflow && <ExecutionInspector workflowId={workflow.id} current={execution} />}

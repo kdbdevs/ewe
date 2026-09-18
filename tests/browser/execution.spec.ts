@@ -7,6 +7,7 @@ test('Run shows running → success and Stop shows cancelled with no browser err
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  page.on('dialog', async dialog => { expect(dialog.message()).toContain('Production safety review required'); await dialog.accept(); });
   const pending: http.ServerResponse[] = [];
   const server = http.createServer((req, res) => { req.resume(); pending.push(res); });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
