@@ -95,6 +95,7 @@ export default function App() {
   const [nodeMenu, setNodeMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
   const [quickConfig, setQuickConfig] = useState<{ nodeId: string; x: number; y: number } | null>(null);
   const [nodePicker, setNodePicker] = useState<NodePickerContext | null>(null);
+  const [miniMapOpen, setMiniMapOpen] = useState(true);
   const suppressViewportDirty = useRef(false);
   const { execution, events: activityEvents, error: executionError, start, stop } = useExecution(workflow?.id);
   const executing = execution?.status === 'running';
@@ -575,21 +576,26 @@ export default function App() {
               deleteKeyCode={['Backspace', 'Delete']} colorMode="dark">
               <Background variant={BackgroundVariant.Dots} gap={22} size={1.25} color="#2d2634" />
               <Controls showInteractive={false} position="bottom-left" />
-              <MiniMap
-                pannable zoomable
-                position="bottom-right"
-                nodeBorderRadius={10}
-                nodeColor={node => executionByNode.get(node.id)?.status === 'running' ? '#ff6d00' : '#3a3342'}
-                nodeStrokeColor={node => executionByNode.get(node.id)?.status === 'error' ? '#ff5a6a' : '#665d72'}
-                maskColor="rgba(12, 9, 16, .72)"
-              />
+              {miniMapOpen ? (
+                <MiniMap
+                  pannable zoomable
+                  position="bottom-right"
+                  nodeBorderRadius={10}
+                  nodeColor={node => executionByNode.get(node.id)?.status === 'running' ? '#ff6d00' : '#3a3342'}
+                  nodeStrokeColor={node => executionByNode.get(node.id)?.status === 'error' ? '#ff5a6a' : '#665d72'}
+                  maskColor="rgba(12, 9, 16, .72)"
+                />
+              ) : null}
               <Panel position="top-left" className="canvas-hud">
                 <strong>{workflow?.name || 'Workflow'}</strong>
                 <span>{nodes.length} nodes</span>
                 <span>{edges.length} edges</span>
                 {execution?.status ? <em data-state={execution.status}>{execution.status}</em> : null}
               </Panel>
-              <Panel position="top-right" className="node-add-panel">
+              <Panel position="top-right" className="canvas-actions-panel">
+                <button type="button" data-testid="toggle-minimap" aria-pressed={miniMapOpen} onClick={() => setMiniMapOpen(open => !open)}>
+                  {miniMapOpen ? 'Hide map' : 'Show map'}
+                </button>
                 <button type="button" data-testid="open-node-picker" disabled={!workflow} onClick={() => openNodePicker({ mode: 'free' })}>+ Add node</button>
               </Panel>
             </ReactFlow>

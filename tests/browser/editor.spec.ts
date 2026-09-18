@@ -33,6 +33,11 @@ test('template gallery creates a starter workflow and workspace search finds it'
 test('node context menu can quick-configure, duplicate and delete nodes', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('create-workflow').click();
+  await expect(page.locator('.react-flow__minimap')).toBeVisible();
+  await page.getByTestId('toggle-minimap').click();
+  await expect(page.locator('.react-flow__minimap')).toHaveCount(0);
+  await page.getByTestId('toggle-minimap').click();
+  await expect(page.locator('.react-flow__minimap')).toBeVisible();
   await addNode(page, 'manualTrigger');
   await expect(page.getByTestId('canvas-node')).toHaveCount(1);
   const firstId = await page.locator('.react-flow__node').first().getAttribute('data-id');
