@@ -7,7 +7,7 @@ import '@xyflow/react/dist/style.css';
 import './style.css';
 import { api, type WorkflowSummary } from './api/client';
 import type { CredentialPayload, CredentialSummary, CredentialType } from './api/credentials';
-import { defaultParameters, getNodeMetadata, registry } from './nodes/registry';
+import { defaultParameters, getNodeMetadata, registry, type ParameterField } from './nodes/registry';
 import type { Workflow, WorkflowNode } from './model';
 import { validateWorkflow } from './validation';
 import EweNode from './editor/EweNode';
@@ -25,6 +25,17 @@ import { analyzeWorkflowSafety, hasBlockingSafetyRisk } from './safety';
 
 const nodeTypes = { ewe: EweNode };
 type AppNode = Node<{ node: WorkflowNode }, 'ewe'>;
+const quickConfigKeys: Record<string, string[]> = {
+  ai: ['model', 'userPrompt', 'systemPrompt', 'temperature'],
+  code: ['source', 'timeout'],
+  hermesAgent: ['prompt', 'model', 'timeout'],
+  httpRequest: ['method', 'url', 'bodyType', 'body'],
+  if: ['field', 'operator', 'value'],
+  schedule: ['cron', 'enabled', 'runMissed'],
+  set: ['field', 'value'],
+  switch: ['field', 'mode', 'rules'],
+  webhook: ['path', 'enabled', 'secret'],
+};
 const initialViewport = { x: 30, y: 50, zoom: 0.85 };
 const defaultEdgeOptions = {
   markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
@@ -62,6 +73,7 @@ export default function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [nodeMenu, setNodeMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
+  const [quickConfig, setQuickConfig] = useState<{ nodeId: string; x: number; y: number } | null>(null);
   const suppressViewportDirty = useRef(false);
   const { execution, events: activityEvents, error: executionError, start, stop } = useExecution(workflow?.id);
   const executing = execution?.status === 'running';
@@ -228,6 +240,7 @@ export default function App() {
     setEdges(current => current.filter(edge => edge.source !== nodeId && edge.target !== nodeId));
     if (selectedNodeId === nodeId) setSelectedNodeId(undefined);
     setNodeMenu(null);
+    setQuickConfig(null);
     changed();
   };
   const duplicateNode = (nodeId: string) => {
@@ -242,6 +255,7 @@ export default function App() {
     setNodes(current => [...current, { id: copy.id, type: 'ewe', position: copy.position, data: { node: copy } }]);
     setSelectedNodeId(copy.id);
     setNodeMenu(null);
+    setQuickConfig(null);
     changed();
   };
   const deleteSelected = () => {
@@ -254,6 +268,33 @@ export default function App() {
     changed();
   };
   const selectedNode = useMemo(() => nodes.find(item => item.id === selectedNodeId)?.data.node, [nodes, selectedNodeId]);
+  const quickConfigNode = useMemo(() => nodes.find(item => item.id === quickConfig?.nodeId)?.data.node, [nodes, quickConfig?.nodeId]);
+  const quickConfigDef = quickConfigNode ? getNodeMetadata(quickConfigNode.type) : undefined;
+  const quickConfigFields = useMemo(() => {
+    if (!quickConfigDef || !quickConfigNode) return [];
+    const preferred = quickConfigKeys[quickConfigNode.type];
+    if (!preferred) return quickConfigDef.fields.slice(0, 4);
+    const byKey = new Map(quickConfigDef.fields.map(field => [field.key, field]));
+    return preferred.map(key => byKey.get(key)).filter((field): field is ParameterField => Boolean(field));
+  }, [quickConfigDef, quickConfigNode]);
+  const patchNodeById = (nodeId: string, patch: Partial<WorkflowNode>) => {
+    setNodes(current => current.map(node => node.id === nodeId ? { ...node, data: { node: { ...node.data.node, ...patch } } } : node));
+    changed();
+  };
+  const patchNodeParameterById = (nodeId: string, node: WorkflowNode, field: ParameterField, rawValue: string) => {
+    patchNodeById(nodeId, {
+      parameters: {
+        ...node.parameters,
+        [field.key]: field.kind === 'number' ? Number(rawValue) : rawValue,
+      },
+    });
+  };
+  const openFullConfig = (nodeId: string) => {
+    setSelectedNodeId(nodeId);
+    setQuickConfig(null);
+    setNodeMenu(null);
+    window.requestAnimationFrame(() => document.querySelector('[data-testid="config-panel"]')?.scrollIntoView({ block: 'nearest' }));
+  };
   const patchNode = (patch: Partial<WorkflowNode>) => {
     setNodes(current => current.map(node => node.id === selectedNodeId ? { ...node, data: { node: { ...node.data.node, ...patch } } } : node));
     changed();
@@ -360,14 +401,15 @@ export default function App() {
               }}
               onEdgesChange={changes => { onEdgesChange(changes); if (changes.some(change => change.type === 'remove')) changed(); }}
               onConnect={onConnect} isValidConnection={connection => connection.source !== connection.target}
-              onNodeClick={(_, node) => { setSelectedNodeId(node.id); setNodeMenu(null); }}
+              onNodeClick={(_, node) => { setSelectedNodeId(node.id); setNodeMenu(null); setQuickConfig(null); }}
               onNodeContextMenu={(event, node) => {
                 event.preventDefault();
                 setSelectedNodeId(node.id);
                 setNodeMenu({ nodeId: node.id, x: event.clientX, y: event.clientY });
+                setQuickConfig(null);
               }}
-              onPaneClick={() => { setSelectedNodeId(undefined); setNodeMenu(null); }}
-              onMoveStart={() => setNodeMenu(null)}
+              onPaneClick={() => { setSelectedNodeId(undefined); setNodeMenu(null); setQuickConfig(null); }}
+              onMoveStart={() => { setNodeMenu(null); setQuickConfig(null); }}
               viewport={viewport} onViewportChange={setViewport} onMoveEnd={event => {
                 if (!event) return;
                 if (suppressViewportDirty.current) { suppressViewportDirty.current = false; return; }
@@ -422,10 +464,46 @@ export default function App() {
       </main>
       {nodeMenu ? (
         <div className="node-context-menu" role="menu" style={{ left: nodeMenu.x, top: nodeMenu.y }} data-testid="node-context-menu">
-          <button type="button" role="menuitem" onClick={() => { setSelectedNodeId(nodeMenu.nodeId); setNodeMenu(null); }}>Configure</button>
+          <button type="button" role="menuitem" onClick={() => { setQuickConfig({ ...nodeMenu }); setNodeMenu(null); }}>Quick config</button>
           <button type="button" role="menuitem" onClick={() => duplicateNode(nodeMenu.nodeId)}>Duplicate</button>
           <button type="button" role="menuitem" className="danger" onClick={() => deleteNode(nodeMenu.nodeId)}>Delete</button>
         </div>
+      ) : null}
+      {quickConfig && quickConfigNode && quickConfigDef ? (
+        <section className="quick-config-popover" style={{ left: quickConfig.x, top: quickConfig.y }} data-testid="quick-config-popover">
+          <header>
+            <span className="quick-config-icon">{quickConfigDef.icon}</span>
+            <div>
+              <strong>Quick config</strong>
+              <small>{quickConfigDef.name}</small>
+            </div>
+            <button type="button" aria-label="Close quick config" onClick={() => setQuickConfig(null)}>×</button>
+          </header>
+          <label className="quick-config-field">
+            <span>Node name</span>
+            <input value={quickConfigNode.name} onChange={event => patchNodeById(quickConfigNode.id, { name: event.target.value })} />
+          </label>
+          {quickConfigFields.map(field => {
+            const value = String(quickConfigNode.parameters[field.key] ?? '');
+            return (
+              <label key={field.key} className="quick-config-field">
+                <span>{field.label}</span>
+                {field.kind === 'select' ? (
+                  <select value={value} onChange={event => patchNodeParameterById(quickConfigNode.id, quickConfigNode, field, event.target.value)}>
+                    {field.options!.map(option => <option key={option} value={option}>{option}</option>)}
+                  </select>
+                ) : field.kind === 'multiline' ? (
+                  <textarea rows={field.key === 'source' || field.key.includes('Prompt') || field.key === 'prompt' ? 5 : 3} value={value} onChange={event => patchNodeParameterById(quickConfigNode.id, quickConfigNode, field, event.target.value)} />
+                ) : (
+                  <input type={field.kind === 'number' ? 'number' : 'text'} min={field.min} max={field.max} value={value} onChange={event => patchNodeParameterById(quickConfigNode.id, quickConfigNode, field, event.target.value)} />
+                )}
+              </label>
+            );
+          })}
+          <footer>
+            <button type="button" onClick={() => openFullConfig(quickConfigNode.id)}>Open full config</button>
+          </footer>
+        </section>
       ) : null}
       <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>

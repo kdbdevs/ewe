@@ -25,7 +25,7 @@ test('template gallery creates a starter workflow and workspace search finds it'
   expect(created.connections).toHaveLength(3);
 });
 
-test('node context menu can configure, duplicate and delete nodes', async ({ page }) => {
+test('node context menu can quick-configure, duplicate and delete nodes', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('create-workflow').click();
   await page.getByTestId('add-manualTrigger').click();
@@ -33,8 +33,11 @@ test('node context menu can configure, duplicate and delete nodes', async ({ pag
   const firstId = await page.locator('.react-flow__node').first().getAttribute('data-id');
   await page.locator(`[data-id="${firstId}"]`).click({ button: 'right' });
   await expect(page.getByTestId('node-context-menu')).toBeVisible();
-  await page.getByRole('menuitem', { name: 'Configure' }).click();
-  await expect(page.getByTestId('param-note')).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Quick config' }).click();
+  await expect(page.getByTestId('quick-config-popover')).toBeVisible();
+  await page.getByTestId('quick-config-popover').getByLabel('Note').fill('Configured from quick popover');
+  await page.getByRole('button', { name: 'Open full config' }).click();
+  await expect(page.getByTestId('param-note')).toHaveValue('Configured from quick popover');
   await page.locator(`[data-id="${firstId}"]`).click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Duplicate' }).click();
   await expect(page.getByTestId('canvas-node')).toHaveCount(2);
