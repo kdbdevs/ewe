@@ -346,21 +346,6 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
   border-left: 1px solid var(--line);
 }
 
-/* Node palette */
-.ewe-palette { padding: 16px; border-bottom: 1px solid var(--line); }
-.ewe-palette h2 { margin: 0 0 12px; }
-.ewe-palette input { margin-bottom: 10px; }
-.ewe-palette button {
-  display: flex; gap: 10px; align-items: center; width: 100%;
-  margin-top: 6px; text-align: left; padding: 9px 10px;
-  background: #202020;
-  border-color: #343434;
-}
-.ewe-palette button:hover:not(:disabled) { background: #2a2a2a; border-color: #4a4a4a; transform: translateX(2px); }
-.ewe-palette button span { color: #a8a8ad; font-size: 18px; width: 22px; text-align: center; }
-.ewe-palette button:hover:not(:disabled) span { color: var(--accent-2); }
-.ewe-palette button small { margin-left: auto; color: var(--text-3); font-size: 13px; }
-
 /* Config panel */
 .ewe-config { padding: 16px; }
 .ewe-config header { display: flex; gap: 12px; align-items: flex-start; }
@@ -835,6 +820,19 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
 .canvas-hud em[data-state="success"] { color: var(--ok); }
 .canvas-hud em[data-state="error"],
 .canvas-hud em[data-state="cancelled"] { color: var(--err); }
+.node-add-panel button {
+  color: #1a0b02;
+  background: var(--accent);
+  border-color: #ff8a33;
+  box-shadow: 0 1px 2px #0008;
+  font-size: 11px;
+  font-weight: 800;
+}
+.node-add-panel button:hover:not(:disabled) {
+  background: var(--accent-2);
+  border-color: #ff9a4d;
+  transform: translateY(-1px);
+}
 
 .node-context-menu {
   position: fixed;
@@ -966,6 +964,156 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
 .quick-config-popover footer button:hover {
   background: rgba(255,109,0,.13);
   border-color: rgba(255,109,0,.48);
+}
+
+.node-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: start center;
+  padding-top: min(13vh, 110px);
+  background: rgba(0,0,0,.44);
+  backdrop-filter: blur(3px);
+}
+.node-picker-dialog {
+  display: grid;
+  gap: 12px;
+  width: min(760px, calc(100vw - 32px));
+  max-height: min(720px, calc(100vh - 80px));
+  padding: 14px;
+  color: var(--text);
+  background: #1f1f1f;
+  border: 1px solid #484848;
+  border-radius: 12px;
+  box-shadow: var(--sh-3);
+}
+.node-picker-dialog > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #343434;
+}
+.node-picker-dialog > header div {
+  display: grid;
+  gap: 3px;
+}
+.node-picker-dialog > header strong {
+  color: var(--text);
+  font-size: 15px;
+}
+.node-picker-dialog > header small {
+  color: var(--text-3);
+  font-size: 11px;
+}
+.node-picker-dialog > header button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--text-3);
+  background: transparent;
+  border-color: transparent;
+  font-size: 19px;
+}
+.node-picker-dialog > header button:hover {
+  color: var(--text);
+  background: #2b2b2b;
+  border-color: #3a3a3a;
+}
+.node-picker-dialog > input {
+  width: 100%;
+  font-size: 13px;
+}
+.node-picker-categories {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.node-picker-categories button {
+  flex-shrink: 0;
+  padding: 5px 9px;
+  color: var(--text-2);
+  background: #242424;
+  border-color: #383838;
+  font-size: 10px;
+  font-weight: 800;
+}
+.node-picker-categories button[aria-selected="true"] {
+  color: var(--accent-2);
+  background: rgba(255,109,0,.1);
+  border-color: rgba(255,109,0,.38);
+}
+.node-picker-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  overflow: auto;
+  padding-right: 2px;
+}
+.node-picker-list button {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 10px;
+  min-height: 66px;
+  padding: 10px;
+  text-align: left;
+  background: #242424;
+  border-color: #3a3a3a;
+}
+.node-picker-list button:hover {
+  background: #2c2c2c;
+  border-color: #555;
+  transform: translateY(-1px);
+}
+.node-picker-list button > span {
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: var(--accent-2);
+  background: rgba(255,109,0,.08);
+  border: 1px solid rgba(255,109,0,.22);
+  border-radius: 8px;
+  font-size: 18px;
+}
+.node-picker-list button strong {
+  color: var(--text);
+  font-size: 12px;
+}
+.node-picker-list button small {
+  color: var(--text-3);
+  font-size: 10px;
+}
+.node-picker-list button em {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--text-2);
+  background: #1b1b1b;
+  border: 1px solid #424242;
+  border-radius: 7px;
+  font-style: normal;
+  font-weight: 850;
+}
+.node-picker-list p {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 18px;
+  color: var(--text-3);
+  text-align: center;
+  border: 1px dashed #3a3a3a;
+  border-radius: 8px;
 }
 
 /* Empty states */
@@ -1330,6 +1478,9 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
   .ewe-toolbar { gap: 4px; }
   .ewe-notice { padding: 8px 12px; }
   .ewe-bottom { padding: 8px 12px; }
+  .node-picker-backdrop { padding: 12px; place-items: start center; }
+  .node-picker-list { grid-template-columns: 1fr; }
+  .node-picker-dialog { max-height: calc(100vh - 24px); }
 }
 
 /* ─── Skeleton loader ──────────────────────────────────────────── */

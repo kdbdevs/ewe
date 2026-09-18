@@ -25,6 +25,20 @@ import { analyzeWorkflowSafety, hasBlockingSafetyRisk } from './safety';
 
 const nodeTypes = { ewe: EweNode };
 type AppNode = Node<{ node: WorkflowNode }, 'ewe'>;
+type NodePickerContext =
+  | { mode: 'free' }
+  | { mode: 'after-node'; sourceId: string; sourceHandle?: string }
+  | { mode: 'insert-edge'; edgeId: string; sourceId: string; sourceHandle?: string | null; targetId: string; targetHandle?: string | null };
+const nodeCategories: Array<{ id: string; label: string; types: string[] }> = [
+  { id: 'all', label: 'All', types: registry.map(def => def.type) },
+  { id: 'triggers', label: 'Triggers', types: ['manualTrigger', 'webhook', 'schedule'] },
+  { id: 'logic', label: 'Logic', types: ['if', 'switch', 'merge', 'loop', 'wait'] },
+  { id: 'data', label: 'Data', types: ['set'] },
+  { id: 'http', label: 'HTTP', types: ['httpRequest'] },
+  { id: 'ai', label: 'AI', types: ['ai', 'hermesAgent'] },
+  { id: 'code', label: 'Code', types: ['code'] },
+] ;
+const categoryByType = new Map(nodeCategories.flatMap(category => category.id === 'all' ? [] : category.types.map(type => [type, category.label])));
 const quickConfigKeys: Record<string, string[]> = {
   ai: ['model', 'userPrompt', 'systemPrompt', 'temperature'],
   code: ['source', 'timeout'],
@@ -70,10 +84,12 @@ export default function App() {
   const [dirty, setDirty] = useState(false);
   const [workflowQuery, setWorkflowQuery] = useState('');
   const [nodeQuery, setNodeQuery] = useState('');
+  const [nodeCategory, setNodeCategory] = useState('all');
   const [helpOpen, setHelpOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [nodeMenu, setNodeMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
   const [quickConfig, setQuickConfig] = useState<{ nodeId: string; x: number; y: number } | null>(null);
+  const [nodePicker, setNodePicker] = useState<NodePickerContext | null>(null);
   const suppressViewportDirty = useRef(false);
   const { execution, events: activityEvents, error: executionError, start, stop } = useExecution(workflow?.id);
   const executing = execution?.status === 'running';
@@ -105,6 +121,23 @@ export default function App() {
   }), [edges, executionByNode]);
   const safetySnapshot = useMemo(() => workflow ? serialise(nodes, edges, workflow, viewport) : undefined, [nodes, edges, workflow, viewport]);
   const safetyFindings = useMemo(() => safetySnapshot ? analyzeWorkflowSafety(safetySnapshot) : [], [safetySnapshot]);
+  const nodePickerDefinitions = useMemo(() => {
+    const category = nodeCategories.find(item => item.id === nodeCategory) || nodeCategories[0];
+    const allowed = new Set(category.types);
+    const needle = nodeQuery.trim().toLowerCase();
+    return registry.filter(def => {
+      if (!allowed.has(def.type)) return false;
+      if (!needle) return true;
+      return `${def.name} ${def.description} ${categoryByType.get(def.type) || ''}`.toLowerCase().includes(needle);
+    });
+  }, [nodeCategory, nodeQuery]);
+  const openNodePicker = useCallback((context: NodePickerContext) => {
+    setNodePicker(context);
+    setNodeMenu(null);
+    setQuickConfig(null);
+    setNodeQuery('');
+    setNodeCategory('all');
+  }, []);
 
   // ─── Keyboard shortcuts ────────────────────────────────────────
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
@@ -120,9 +153,20 @@ export default function App() {
       if (!busy && workflow && nodes.some(n => n.data.node.type === 'manualTrigger')) execute();
       return;
     }
-    if (event.key === 'Escape') { setSelectedNodeId(undefined); return; }
+    if (event.key === 'Escape') {
+      setNodePicker(null);
+      setNodeMenu(null);
+      setQuickConfig(null);
+      setSelectedNodeId(undefined);
+      return;
+    }
+    if (event.key.toLowerCase() === 'a' && workflow && !busy) {
+      event.preventDefault();
+      openNodePicker({ mode: 'free' });
+      return;
+    }
     if (event.key === '?') { setHelpOpen(current => !current); return; }
-  }, [busy, workflow, nodes, selectedNodeId]);
+  }, [busy, workflow, nodes, selectedNodeId, openNodePicker]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -168,6 +212,7 @@ export default function App() {
     setNodes(flow.nodes); setEdges(flow.edges);
     setViewport(next.settings.viewport || initialViewport);
     setSelectedNodeId(undefined); setMessage(''); setDirty(false);
+    setNodePicker(null); setNodeMenu(null); setQuickConfig(null);
   };
   const open = (id: string) => {
     if (mayLeave()) void run(async () => load(await api.get(id)));
@@ -224,15 +269,34 @@ export default function App() {
       setWorkflow(saved); await refreshList(); setDirty(false); setMessage('Saved');
     });
   };
-  const addNode = (type: string) => {
+  const addNode = (type: string, context: NodePickerContext = { mode: 'free' }) => {
     if (!workflow) return;
     const def = getNodeMetadata(type)!;
+    const source = context.mode !== 'free' ? nodes.find(item => item.id === context.sourceId) : undefined;
+    const sourceDef = source ? getNodeMetadata(source.data.node.type) : undefined;
+    const target = context.mode === 'insert-edge' ? nodes.find(item => item.id === context.targetId) : undefined;
+    const nodePosition =
+      source ? { x: source.position.x + 340, y: source.position.y + (context.mode === 'insert-edge' ? 0 : 80) } :
+      target ? { x: target.position.x - 280, y: target.position.y } :
+      { x: 30 + (nodes.length % 3) * 340, y: 100 + Math.floor(nodes.length / 3) * 170 };
     const node: WorkflowNode = {
       id: uid(), type, name: def.name,
-      position: { x: 30 + (nodes.length % 3) * 260, y: 100 + Math.floor(nodes.length / 3) * 160 },
+      position: nodePosition,
       parameters: defaultParameters(def), credentials: {},
     };
     setNodes(current => [...current, { id: node.id, type: 'ewe', position: node.position, data: { node } }]);
+    if (context.mode === 'after-node' || context.mode === 'insert-edge') {
+      const sourceHandle = context.sourceHandle || sourceDef?.outputs[0] || 'main';
+      const targetHandle = def.inputs[0] || 'main';
+      setEdges(current => {
+        const withoutInserted = context.mode === 'insert-edge' ? current.filter(edge => edge.id !== context.edgeId) : current;
+        const first: Edge = { id: uid(), source: context.sourceId, target: node.id, sourceHandle, targetHandle };
+        if (context.mode !== 'insert-edge') return addEdge(first, withoutInserted);
+        const second: Edge = { id: uid(), source: node.id, target: context.targetId, sourceHandle: def.outputs[0] || 'main', targetHandle: context.targetHandle || 'main' };
+        return addEdge(second, addEdge(first, withoutInserted));
+      });
+    }
+    setNodePicker(null);
     setSelectedNodeId(node.id); changed();
   };
   const deleteNode = (nodeId: string) => {
@@ -241,6 +305,7 @@ export default function App() {
     if (selectedNodeId === nodeId) setSelectedNodeId(undefined);
     setNodeMenu(null);
     setQuickConfig(null);
+    setNodePicker(null);
     changed();
   };
   const duplicateNode = (nodeId: string) => {
@@ -256,6 +321,7 @@ export default function App() {
     setSelectedNodeId(copy.id);
     setNodeMenu(null);
     setQuickConfig(null);
+    setNodePicker(null);
     changed();
   };
   const deleteSelected = () => {
@@ -381,7 +447,7 @@ export default function App() {
               <div className="empty-state">
                 <span className="empty-state-icon">＋</span>
                 <h2>Start from a template or trigger.</h2>
-                <p>Use the template gallery for a proven starter flow, or add a Manual Trigger, Webhook, or Schedule node from the library.</p>
+                <p>Use the template gallery for a starter flow, or open Add node to build from triggers, logic, AI, HTTP, and code blocks.</p>
               </div>
             )}
             {loaded && !workflow && (
@@ -407,9 +473,21 @@ export default function App() {
                 setSelectedNodeId(node.id);
                 setNodeMenu({ nodeId: node.id, x: event.clientX, y: event.clientY });
                 setQuickConfig(null);
+                setNodePicker(null);
               }}
-              onPaneClick={() => { setSelectedNodeId(undefined); setNodeMenu(null); setQuickConfig(null); }}
-              onMoveStart={() => { setNodeMenu(null); setQuickConfig(null); }}
+              onEdgeContextMenu={(event, edge) => {
+                event.preventDefault();
+                openNodePicker({
+                  mode: 'insert-edge',
+                  edgeId: edge.id,
+                  sourceId: edge.source,
+                  sourceHandle: edge.sourceHandle,
+                  targetId: edge.target,
+                  targetHandle: edge.targetHandle,
+                });
+              }}
+              onPaneClick={() => { setSelectedNodeId(undefined); setNodeMenu(null); setQuickConfig(null); setNodePicker(null); }}
+              onMoveStart={() => { setNodeMenu(null); setQuickConfig(null); setNodePicker(null); }}
               viewport={viewport} onViewportChange={setViewport} onMoveEnd={event => {
                 if (!event) return;
                 if (suppressViewportDirty.current) { suppressViewportDirty.current = false; return; }
@@ -434,6 +512,9 @@ export default function App() {
                 <span>{edges.length} edges</span>
                 {execution?.status ? <em data-state={execution.status}>{execution.status}</em> : null}
               </Panel>
+              <Panel position="top-right" className="node-add-panel">
+                <button type="button" data-testid="open-node-picker" disabled={!workflow} onClick={() => openNodePicker({ mode: 'free' })}>+ Add node</button>
+              </Panel>
             </ReactFlow>
           </div>
           <div className="ewe-inspector">
@@ -442,17 +523,10 @@ export default function App() {
             {workflow && <ActivityPanel items={activityEvents} status={execution?.status} />}
             {workflow && <ExecutionInspector workflowId={workflow.id} current={execution} />}
             <CredentialsPanel credentials={credentials} onCreate={createCredential} onDelete={deleteCredential} />
-            <aside className="ewe-palette">
-              <h2>Node library</h2>
-              <input aria-label="Search nodes" placeholder="Search nodes…" value={nodeQuery} onChange={event => setNodeQuery(event.target.value)} />
-              {registry.filter(def => def.name.toLowerCase().includes(nodeQuery.toLowerCase())).map(def => <button key={def.type} type="button" data-testid={`add-${def.type}`} disabled={!workflow} onClick={() => addNode(def.type)} title={def.description}>
-                <span>{def.icon}</span> {def.name}<small>+</small>
-              </button>)}
-            </aside>
             {selectedNode ? <ConfigPanel node={selectedNode} def={getNodeMetadata(selectedNode.type)!} credentials={credentials}
               onParameterChange={(key, value) => patchNode({ parameters: { ...selectedNode.parameters, [key]: value } })}
               onCredentialChange={(key, credentialId) => patchNode({ credentials: { ...selectedNode.credentials, [key]: credentialId } })}
-              onNameChange={name => patchNode({ name })} onDelete={deleteSelected} /> : <p className="config-hint">Select a node to configure it.<br /><br />Connect: click an output, then an input.<br />Disconnect: select an edge, press <kbd>Delete</kbd>.<br />Pan: drag the canvas. Zoom: scroll.</p>}
+              onNameChange={name => patchNode({ name })} onDelete={deleteSelected} /> : <p className="config-hint">Select a node to configure it.<br /><br />Add nodes from the floating <kbd>+ Add node</kbd> button or press <kbd>A</kbd>.<br />Right-click a node to add the next step. Right-click an edge to insert a node between steps.</p>}
           </div>
         </div>
         <footer className="ewe-bottom">
@@ -465,6 +539,7 @@ export default function App() {
       {nodeMenu ? (
         <div className="node-context-menu" role="menu" style={{ left: nodeMenu.x, top: nodeMenu.y }} data-testid="node-context-menu">
           <button type="button" role="menuitem" onClick={() => { setQuickConfig({ ...nodeMenu }); setNodeMenu(null); }}>Quick config</button>
+          <button type="button" role="menuitem" onClick={() => openNodePicker({ mode: 'after-node', sourceId: nodeMenu.nodeId })}>Add next node</button>
           <button type="button" role="menuitem" onClick={() => duplicateNode(nodeMenu.nodeId)}>Duplicate</button>
           <button type="button" role="menuitem" className="danger" onClick={() => deleteNode(nodeMenu.nodeId)}>Delete</button>
         </div>
@@ -503,6 +578,46 @@ export default function App() {
           <footer>
             <button type="button" onClick={() => openFullConfig(quickConfigNode.id)}>Open full config</button>
           </footer>
+        </section>
+      ) : null}
+      {nodePicker ? (
+        <section className="node-picker-backdrop" data-testid="node-picker" onMouseDown={event => {
+          if (event.target === event.currentTarget) setNodePicker(null);
+        }}>
+          <div className="node-picker-dialog" role="dialog" aria-modal="true" aria-label="Add node">
+            <header>
+              <div>
+                <strong>
+                  {nodePicker.mode === 'after-node' ? 'Add next node' : nodePicker.mode === 'insert-edge' ? 'Insert node' : 'Add node'}
+                </strong>
+                <small>
+                  {nodePicker.mode === 'after-node' ? 'The new node will be connected after the selected node.' :
+                   nodePicker.mode === 'insert-edge' ? 'The selected edge will be replaced with this node in between.' :
+                   'Search or pick a category to add a node to the canvas.'}
+                </small>
+              </div>
+              <button type="button" aria-label="Close add node" onClick={() => setNodePicker(null)}>×</button>
+            </header>
+            <input autoFocus aria-label="Search nodes" placeholder="Search nodes…" value={nodeQuery} onChange={event => setNodeQuery(event.target.value)} />
+            <div className="node-picker-categories" role="tablist" aria-label="Node categories">
+              {nodeCategories.map(category => (
+                <button key={category.id} type="button" role="tab" aria-selected={nodeCategory === category.id} onClick={() => setNodeCategory(category.id)}>
+                  {category.label}
+                </button>
+              ))}
+            </div>
+            <div className="node-picker-list">
+              {nodePickerDefinitions.map(def => (
+                <button key={def.type} type="button" data-testid={`add-${def.type}`} onClick={() => addNode(def.type, nodePicker)} title={def.description}>
+                  <span>{def.icon}</span>
+                  <strong>{def.name}</strong>
+                  <small>{categoryByType.get(def.type) || 'Node'}</small>
+                  <em>+</em>
+                </button>
+              ))}
+              {nodePickerDefinitions.length === 0 ? <p>No nodes found.</p> : null}
+            </div>
+          </div>
         </section>
       ) : null}
       <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
