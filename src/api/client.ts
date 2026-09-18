@@ -18,6 +18,7 @@ export const api = {
   create: (name: string) => request<Workflow>('/api/workflows', '', { method: 'POST', body: JSON.stringify({ name }) }),
   get: (id: string) => request<Workflow>('/api/workflows', '/' + id),
   save: (workflow: Workflow) => request<Workflow>('/api/workflows', '/' + workflow.id, { method: 'PUT', body: JSON.stringify(workflow) }),
+  deleteWorkflow: (id: string) => request<void>('/api/workflows', '/' + id, { method: 'DELETE' }),
   credentials: () => request<CredentialSummary[]>('/api/credentials', ''),
   createCredential: (input: { name: string; type: CredentialType; data: CredentialPayload }) =>
     request<CredentialSummary>('/api/credentials', '', { method: 'POST', body: JSON.stringify(input) }),

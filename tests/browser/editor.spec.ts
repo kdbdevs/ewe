@@ -8,6 +8,21 @@ async function connect(page: Page, source: string, target: string) {
   await to.click();
 }
 
+test('template gallery creates a starter workflow and workspace search finds it', async ({ page, request }) => {
+  await page.goto('/');
+  await expect(page.getByTestId('template-gallery')).toBeVisible();
+  await page.getByTestId('template-landing-page-intake').click();
+  await expect(page.getByTestId('workflow-name')).toHaveValue('Landing Page Intake');
+  await expect(page.getByTestId('canvas-node')).toHaveCount(4);
+  await page.getByLabel('Search workflows').fill('landing page');
+  await expect(page.getByTestId('workflow-list').getByRole('button', { name: 'Landing Page Intake', exact: true })).toBeVisible();
+
+  const workflows = await (await request.get('/api/workflows')).json();
+  const created = workflows.find((item: { name: string }) => item.name === 'Landing Page Intake');
+  expect(created.nodes).toHaveLength(4);
+  expect(created.connections).toHaveLength(3);
+});
+
 test('three configured nodes and edges restore identically; deletion leaves no dangling edges', async ({ page, request }, info) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));

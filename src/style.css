@@ -133,18 +133,125 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
 .ewe-tagline { color: var(--text-3); font-size: 9px; letter-spacing: 0.14em; margin: 12px 0 26px; font-weight: 600; }
 .section-label { font-size: 10px; color: var(--text-3); letter-spacing: 0.12em; font-weight: 700; white-space: nowrap; }
 .ewe-sidebar h2 { margin-top: 26px; }
+.template-gallery {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0 4px;
+}
+.template-gallery button {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 9px 10px;
+  text-align: left;
+  background: #15111b;
+  border-color: #302937;
+}
+.template-gallery button:hover:not(:disabled) {
+  border-color: rgba(255,109,0,.48);
+  background: rgba(255,109,0,.07);
+  transform: translateX(2px);
+}
+.template-gallery span {
+  color: var(--accent-2);
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.template-gallery strong {
+  color: #efe9f6;
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.template-gallery small {
+  display: -webkit-box;
+  color: var(--text-3);
+  font-size: 9.5px;
+  line-height: 1.35;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.workflow-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 24px;
+}
+.workflow-section-head h2 { margin: 0; }
+.workflow-section-head span {
+  color: var(--text-3);
+  background: #191520;
+  border: 1px solid #302937;
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 800;
+}
+.workflow-search {
+  width: 100%;
+  margin: 10px 0 6px;
+}
 .ewe-sidebar ul { padding: 0; list-style: none; overflow-y: auto; flex: 1; margin: 10px 0 0; }
-.ewe-sidebar li { margin: 2px 0; }
-.ewe-sidebar li button {
+.ewe-sidebar li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0;
+  border-radius: var(--r-sm);
+}
+.ewe-sidebar li .workflow-open {
+  flex: 1;
+  min-width: 0;
   width: 100%; border: 0; background: none; text-align: left;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   color: var(--text-2); padding: 8px 10px; border-radius: var(--r-sm);
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
 }
-.ewe-sidebar li button:hover:not(:disabled) { background: var(--bg-3); color: var(--text); }
-.ewe-sidebar li.ewe-active button {
+.ewe-sidebar li .workflow-open:hover:not(:disabled) { background: var(--bg-3); color: var(--text); }
+.ewe-sidebar li.ewe-active .workflow-open {
   background: var(--accent-soft); color: var(--accent-2);
   box-shadow: inset 2px 0 0 var(--accent);
+}
+.workflow-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+.ewe-sidebar li:hover .workflow-actions,
+.ewe-sidebar li:focus-within .workflow-actions,
+.ewe-sidebar li.ewe-active .workflow-actions { opacity: 1; }
+.workflow-actions button {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  min-width: 25px;
+  padding: 0;
+  color: var(--text-3);
+  background: transparent;
+  border-color: transparent;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1;
+}
+.workflow-actions button:hover:not(:disabled) {
+  color: var(--accent-2);
+  background: #201923;
+  border-color: #3f3546;
+}
+.workflow-empty {
+  justify-content: center;
+  padding: 12px 8px;
+  color: var(--text-3);
+  font-size: 11px;
+  border: 1px dashed #302937;
 }
 .sidebar-foot { color: var(--text-3); font-size: 10px; line-height: 1.9; margin-top: 14px; }
 .sidebar-foot span { color: var(--text-2); font-weight: 600; }

@@ -18,6 +18,7 @@ import WorkflowTransfer from './editor/WorkflowTransfer';
 import CredentialsPanel from './editor/CredentialsPanel';
 import { useExecution } from './editor/useExecution';
 import KeyboardHelp from './editor/KeyboardHelp';
+import { workflowTemplates } from './templates';
 
 const nodeTypes = { ewe: EweNode };
 type AppNode = Node<{ node: WorkflowNode }, 'ewe'>;
@@ -53,12 +54,18 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [saving, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [query, setQuery] = useState('');
+  const [workflowQuery, setWorkflowQuery] = useState('');
+  const [nodeQuery, setNodeQuery] = useState('');
   const [helpOpen, setHelpOpen] = useState(false);
   const suppressViewportDirty = useRef(false);
   const { execution, events: activityEvents, error: executionError, start, stop } = useExecution(workflow?.id);
   const executing = execution?.status === 'running';
   const busy = saving || executing;
+  const filteredWorkflows = useMemo(() => {
+    const needle = workflowQuery.trim().toLowerCase();
+    if (!needle) return workflows;
+    return workflows.filter(item => item.name.toLowerCase().includes(needle));
+  }, [workflows, workflowQuery]);
   const executionByNode = useMemo(() => new Map(execution?.nodeExecutions.map(record => [record.nodeId, record]) ?? []), [execution]);
   const displayNodes = useMemo(() => nodes.map(node => {
     const record = executionByNode.get(node.id);
@@ -144,6 +151,42 @@ export default function App() {
       await refreshList(); load(created);
     });
   };
+  const createFromTemplate = (templateId: string) => {
+    if (!mayLeave()) return;
+    const template = workflowTemplates.find(item => item.id === templateId);
+    if (!template) return;
+    void run(async () => {
+      const now = new Date().toISOString();
+      const imported = await api.import({
+        ...structuredClone(template.workflow),
+        name: template.workflow.name.replace('Template - ', ''),
+        createdAt: now,
+        updatedAt: now,
+      });
+      await refreshList(); load(imported); setMessage(`Created from ${template.name}`);
+    });
+  };
+  const duplicateWorkflow = (id: string) => {
+    void run(async () => {
+      const source = await api.get(id);
+      const now = new Date().toISOString();
+      const duplicate = await api.import({ ...source, name: `${source.name} copy`, createdAt: now, updatedAt: now });
+      await refreshList(); load(duplicate); setMessage('Duplicated workflow');
+    });
+  };
+  const deleteWorkflow = (id: string, name: string) => {
+    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    void run(async () => {
+      await api.deleteWorkflow(id);
+      await refreshList();
+      if (workflow?.id === id) {
+        setWorkflow(undefined);
+        setNodes([]); setEdges([]);
+        setSelectedNodeId(undefined); setDirty(false);
+      }
+      setMessage('Deleted workflow');
+    });
+  };
   const save = () => {
     if (!workflow) return;
     const snapshot = serialise(nodes, edges, workflow, viewport);
@@ -198,13 +241,33 @@ export default function App() {
         <button type="button" data-testid="create-workflow" disabled={!loaded || busy} onClick={create}>+ New workflow</button>
         <WorkflowTransfer workflow={workflow} disabled={busy}
           mayLeave={mayLeave} onMessage={setMessage} onImported={async next => { await refreshList(); load(next); }} />
-        <h2 className="section-label">WORKSPACE</h2>
+        <h2 className="section-label">TEMPLATES</h2>
+        <div className="template-gallery" data-testid="template-gallery">
+          {workflowTemplates.map(template => (
+            <button key={template.id} type="button" data-testid={`template-${template.id}`} disabled={!loaded || busy}
+              onClick={() => createFromTemplate(template.id)} title={template.summary}>
+              <span>{template.useCase}</span>
+              <strong>{template.name}</strong>
+              <small>{template.summary}</small>
+            </button>
+          ))}
+        </div>
+        <div className="workflow-section-head">
+          <h2 className="section-label">WORKSPACE</h2>
+          <span>{workflows.length}</span>
+        </div>
+        <input className="workflow-search" aria-label="Search workflows" placeholder="Search workflows…" value={workflowQuery} onChange={event => setWorkflowQuery(event.target.value)} />
         <ul data-testid="workflow-list">
-          {workflows.map(item => <li key={item.id} className={item.id === workflow?.id ? 'ewe-active' : ''}>
-            <button type="button" disabled={busy} onClick={() => open(item.id)}>{item.name}</button>
+          {filteredWorkflows.map(item => <li key={item.id} className={item.id === workflow?.id ? 'ewe-active' : ''}>
+            <button type="button" className="workflow-open" disabled={busy} onClick={() => open(item.id)}>{item.name}</button>
+            <div className="workflow-actions" aria-label={`${item.name} actions`}>
+              <button type="button" disabled={busy} aria-label="Duplicate workflow" title={`Duplicate ${item.name}`} onClick={() => duplicateWorkflow(item.id)}>⧉</button>
+              <button type="button" disabled={busy} aria-label="Delete workflow" title={`Delete ${item.name}`} onClick={() => deleteWorkflow(item.id, item.name)}>×</button>
+            </div>
           </li>)}
+          {loaded && filteredWorkflows.length === 0 ? <li className="workflow-empty">No workflows found.</li> : null}
         </ul>
-        <div className="sidebar-foot">LOCAL WORKSPACE<br /><span>Phase 7 · Polish</span></div>
+        <div className="sidebar-foot">LOCAL WORKSPACE<br /><span>Workflow Lab · Phase 8</span></div>
       </nav>
       <main className="ewe-main">
         <header className="ewe-toolbar">
@@ -235,15 +298,15 @@ export default function App() {
             {loaded && workflow && nodes.length === 0 && (
               <div className="empty-state">
                 <span className="empty-state-icon">＋</span>
-                <h2>Start with a trigger.</h2>
-                <p>Add a Manual Trigger, Webhook, or Schedule node from the library, then connect actions to build the automation.</p>
+                <h2>Start from a template or trigger.</h2>
+                <p>Use the template gallery for a proven starter flow, or add a Manual Trigger, Webhook, or Schedule node from the library.</p>
               </div>
             )}
             {loaded && !workflow && (
               <div className="empty-state">
                 <span className="empty-state-icon">↯</span>
                 <h2>Your next workflow starts here.</h2>
-                <p>Create or import a workflow to open the automation canvas.</p>
+                <p>Create a blank workflow, import JSON, or choose a template from the sidebar to open the automation canvas.</p>
               </div>
             )}
             <ReactFlow nodes={displayNodes} edges={displayEdges} nodeTypes={nodeTypes}
@@ -289,8 +352,8 @@ export default function App() {
             <CredentialsPanel credentials={credentials} onCreate={createCredential} onDelete={deleteCredential} />
             <aside className="ewe-palette">
               <h2>Node library</h2>
-              <input aria-label="Search nodes" placeholder="Search nodes…" value={query} onChange={event => setQuery(event.target.value)} />
-              {registry.filter(def => def.name.toLowerCase().includes(query.toLowerCase())).map(def => <button key={def.type} type="button" data-testid={`add-${def.type}`} disabled={!workflow} onClick={() => addNode(def.type)} title={def.description}>
+              <input aria-label="Search nodes" placeholder="Search nodes…" value={nodeQuery} onChange={event => setNodeQuery(event.target.value)} />
+              {registry.filter(def => def.name.toLowerCase().includes(nodeQuery.toLowerCase())).map(def => <button key={def.type} type="button" data-testid={`add-${def.type}`} disabled={!workflow} onClick={() => addNode(def.type)} title={def.description}>
                 <span>{def.icon}</span> {def.name}<small>+</small>
               </button>)}
             </aside>
