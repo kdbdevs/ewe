@@ -906,14 +906,17 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
 .ewe-edge-running .react-flow__edge-path {
   stroke: var(--accent);
   stroke-width: 3;
-  stroke-dasharray: 9 7;
-  animation: edge-flow 720ms linear infinite;
+  stroke-dasharray: none;
+  animation: edge-pulse 1.1s var(--ease) infinite;
   filter: drop-shadow(0 0 7px rgba(255,109,0,.44));
 }
 .react-flow__edge.selected .react-flow__edge-path { stroke: var(--accent-2); stroke-width: 3; }
 .react-flow__edge .react-flow__edge-textbg { fill: #171717; }
 .react-flow__edge .react-flow__edge-text { fill: #d4d4d8; font-size: 10px; font-weight: 700; }
-@keyframes edge-flow { to { stroke-dashoffset: -16; } }
+@keyframes edge-pulse {
+  0%, 100% { stroke-opacity: .72; filter: drop-shadow(0 0 4px rgba(255,109,0,.3)); }
+  50% { stroke-opacity: 1; filter: drop-shadow(0 0 9px rgba(255,109,0,.55)); }
+}
 .react-flow__controls { box-shadow: var(--sh-2); border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--line); }
 .react-flow__controls button { background: var(--bg-2); border-color: var(--line); fill: var(--text-2); color: var(--text-2); border-radius: 0; }
 .react-flow__controls button:hover:not(:disabled) { background: var(--bg-3); fill: var(--text); color: var(--text); }

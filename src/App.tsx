@@ -66,6 +66,7 @@ const initialViewport = { x: 30, y: 50, zoom: 0.85 };
 const defaultEdgeOptions = {
   markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
   className: 'ewe-edge',
+  type: 'straight',
 };
 const toFlow = (workflow: Workflow) => ({
   nodes: workflow.nodes.map(node => ({ id: node.id, type: 'ewe' as const, position: node.position, data: { node } })),
@@ -133,9 +134,10 @@ export default function App() {
       targetStatus === 'skipped' ? 'skipped' : 'idle';
     return {
       ...edge,
-      animated: status === 'running',
+      animated: false,
       className: `ewe-edge ewe-edge-${status}`,
       markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+      type: 'straight',
     };
   }), [edges, executionByNode]);
   const safetySnapshot = useMemo(() => workflow ? serialise(nodes, edges, workflow, viewport) : undefined, [nodes, edges, workflow, viewport]);
