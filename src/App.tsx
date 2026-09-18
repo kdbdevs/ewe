@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   Background, BackgroundVariant, Controls, MarkerType, MiniMap, Panel, ReactFlow, addEdge,
   useEdgesState, useNodesState, type Connection, type Edge, type Node, type Viewport,
@@ -80,6 +80,11 @@ export default function App() {
   const [selectedNodeId, setSelectedNodeId] = useState<string>();
   const [message, setMessage] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [loginUser, setLoginUser] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [loginError, setLoginError] = useState('');
   const [saving, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [workflowQuery, setWorkflowQuery] = useState('');
@@ -191,7 +196,23 @@ export default function App() {
 
   const refreshList = useCallback(async () => setWorkflows(await api.list()), []);
   const refreshCredentials = useCallback(async () => setCredentials(await api.credentials()), []);
-  useEffect(() => { Promise.all([refreshList(), refreshCredentials()]).then(() => setLoaded(true)).catch(error => setMessage(String(error))); }, [refreshList, refreshCredentials]);
+  const hydrateApp = useCallback(async () => {
+    setLoaded(false);
+    await Promise.all([refreshList(), refreshCredentials()]);
+    setLoaded(true);
+  }, [refreshList, refreshCredentials]);
+  useEffect(() => {
+    api.session()
+      .then(async session => {
+        setAuthenticated(session.authenticated);
+        setAuthChecked(true);
+        if (session.authenticated) await hydrateApp();
+      })
+      .catch(error => {
+        setLoginError(error instanceof Error ? error.message : String(error));
+        setAuthChecked(true);
+      });
+  }, [hydrateApp]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => { if (dirty) { event.preventDefault(); event.returnValue = ''; } };
     window.addEventListener('beforeunload', warn);
@@ -204,6 +225,34 @@ export default function App() {
     try { await action(); }
     catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
+  };
+  const login = (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setLoginError('');
+    api.login(loginUser, loginPass)
+      .then(async session => {
+        setAuthenticated(session.authenticated);
+        setLoginPass('');
+        await hydrateApp();
+      })
+      .catch(error => setLoginError(error instanceof Error ? error.message : String(error)))
+      .finally(() => setBusy(false));
+  };
+  const logout = () => {
+    void run(async () => {
+      await api.logout();
+      setAuthenticated(false);
+      setLoaded(false);
+      setWorkflow(undefined);
+      setNodes([]);
+      setEdges([]);
+      setCredentials([]);
+      setWorkflows([]);
+      setSelectedNodeId(undefined);
+      setMessage('');
+      setDirty(false);
+    });
   };
   const load = (next: Workflow) => {
     suppressViewportDirty.current = true;
@@ -376,6 +425,34 @@ export default function App() {
 
   return (
     <div className="ewe-app" aria-busy={busy}>
+      {!authChecked ? (
+        <main className="login-screen">
+          <section className="login-card">
+            <span className="brand-mark">e</span>
+            <h1>eWe</h1>
+            <p>Checking session…</p>
+          </section>
+        </main>
+      ) : !authenticated ? (
+        <main className="login-screen">
+          <form className="login-card" onSubmit={login}>
+            <span className="brand-mark">e</span>
+            <h1>eWe</h1>
+            <p>Sign in to manage visual workflows.</p>
+            <label>
+              <span>Username</span>
+              <input autoFocus autoComplete="username" value={loginUser} onChange={event => setLoginUser(event.target.value)} />
+            </label>
+            <label>
+              <span>Password</span>
+              <input type="password" autoComplete="current-password" value={loginPass} onChange={event => setLoginPass(event.target.value)} />
+            </label>
+            {loginError ? <strong role="alert">{loginError}</strong> : null}
+            <button className="primary" type="submit" disabled={busy || !loginUser || !loginPass}>{busy ? 'Signing in…' : 'Login'}</button>
+          </form>
+        </main>
+      ) : (
+      <>
       <nav className="ewe-sidebar" aria-label="Workflows">
         <h1><span className="brand-mark">e</span> eWe</h1>
         <p className="ewe-tagline">VISUAL WORKFLOW AUTOMATION</p>
@@ -415,7 +492,7 @@ export default function App() {
           </li>)}
           {loaded && filteredWorkflows.length === 0 ? <li className="workflow-empty">No workflows found.</li> : null}
         </ul>
-        <div className="sidebar-foot">LOCAL WORKSPACE<br /><span>Workflow Lab · Phase 8</span></div>
+        <div className="sidebar-foot">LOCAL WORKSPACE<br /><span>Workflow Lab · Phase 8</span><button type="button" onClick={logout}>Logout</button></div>
       </nav>
       <main className="ewe-main">
         <header className="ewe-toolbar">
@@ -621,6 +698,8 @@ export default function App() {
         </section>
       ) : null}
       <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
+      </>
+      )}
     </div>
   );
 }

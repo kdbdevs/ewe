@@ -130,6 +130,66 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
    ──────────────────────────────────────────────────────────── */
 .ewe-app { display: flex; height: 100dvh; min-height: 600px; background: var(--bg-0); }
 
+.login-screen {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 100dvh;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(255,109,0,.08), transparent 28%),
+    radial-gradient(circle at 18px 18px, rgba(255,255,255,.035) 1px, transparent 1px) 0 0/24px 24px,
+    #111111;
+}
+.login-card {
+  display: grid;
+  gap: 12px;
+  width: min(390px, 100%);
+  padding: 26px;
+  background: #1f1f1f;
+  border: 1px solid #3f3f3f;
+  border-radius: 12px;
+  box-shadow: var(--sh-3);
+}
+.login-card .brand-mark {
+  width: 40px;
+  height: 40px;
+  font-size: 28px;
+}
+.login-card h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: 30px;
+  letter-spacing: -.04em;
+}
+.login-card p {
+  margin: -6px 0 8px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+.login-card label {
+  display: grid;
+  gap: 6px;
+}
+.login-card label span {
+  color: var(--text-2);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.login-card strong[role="alert"] {
+  color: var(--err);
+  background: var(--err-soft);
+  border: 1px solid rgba(251,113,133,.28);
+  border-radius: 7px;
+  padding: 8px 10px;
+  font-size: 11px;
+}
+.login-card button {
+  margin-top: 4px;
+}
+
 .ewe-sidebar {
   width: 222px; flex-shrink: 0;
   background: #1d1d1d;
@@ -296,8 +356,22 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
   font-size: 11px;
   border: 1px dashed #3a3a3a;
 }
-.sidebar-foot { color: var(--text-3); font-size: 10px; line-height: 1.9; margin-top: 14px; }
+.sidebar-foot { display: grid; gap: 8px; color: var(--text-3); font-size: 10px; line-height: 1.9; margin-top: 14px; }
 .sidebar-foot span { color: var(--text-2); font-weight: 600; }
+.sidebar-foot button {
+  width: 100%;
+  padding: 6px 8px;
+  color: var(--text-2);
+  background: #242424;
+  border-color: #3a3a3a;
+  font-size: 10px;
+  font-weight: 800;
+}
+.sidebar-foot button:hover:not(:disabled) {
+  color: var(--accent-2);
+  background: rgba(255,109,0,.08);
+  border-color: rgba(255,109,0,.32);
+}
 
 .ewe-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .ewe-toolbar {
