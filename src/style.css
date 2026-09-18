@@ -760,7 +760,7 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
   background: #242424;
   border-radius: 10px;
   box-shadow: 0 2px 0 rgba(255,255,255,.03) inset, 0 16px 38px rgba(0,0,0,.34);
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease), background var(--dur) var(--ease);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 .ewe-node::before {
   content: "";
@@ -772,7 +772,11 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
   border: 1px solid transparent;
   transition: opacity var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-.react-flow__node:hover .ewe-node { border-color: #66666d; transform: translateY(-2px) scale(1.01); background: #2b2b2b; }
+.react-flow__node:hover .ewe-node {
+  border-color: #66666d;
+  background: #2b2b2b;
+  box-shadow: 0 2px 0 rgba(255,255,255,.04) inset, 0 18px 42px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.03);
+}
 .ewe-node-add-next {
   position: absolute;
   right: -78px;
