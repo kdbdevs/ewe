@@ -8,6 +8,8 @@ export default function EweNode({ data }: NodeProps) {
   const status = String(data.status || '');
   const duration = typeof data.duration === 'number' && data.duration > 0 ? `${data.duration} ms` : '';
   const port = typeof data.port === 'string' && data.port ? data.port : '';
+  const hasOutgoing = Boolean(data.hasOutgoing);
+  const onAddNext = typeof data.onAddNext === 'function' ? data.onAddNext as () => void : undefined;
 
   return (
     <div className="ewe-node" data-testid="canvas-node" data-status={status} data-node-kind={node.type}>
@@ -32,6 +34,21 @@ export default function EweNode({ data }: NodeProps) {
           <div className="ewe-node-runline is-idle"><span>ready</span></div>
         )}
       </div>
+      {def && def.outputs.length > 0 && !hasOutgoing && onAddNext ? (
+        <button
+          type="button"
+          className="ewe-node-add-next nodrag nopan"
+          data-testid="node-add-next"
+          title={`Add node after ${node.name}`}
+          onMouseDown={event => event.stopPropagation()}
+          onClick={event => {
+            event.stopPropagation();
+            onAddNext();
+          }}
+        >
+          +
+        </button>
+      ) : null}
       {def && def.outputs.map(port => <Handle key={port} id={port} type="source" position={Position.Right} className="ewe-handle-source" title={`Output: ${port}`} />)}
     </div>
   );

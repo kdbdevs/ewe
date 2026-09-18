@@ -24,7 +24,15 @@ import ProductionSafetyPanel from './editor/ProductionSafetyPanel';
 import { analyzeWorkflowSafety, hasBlockingSafetyRisk } from './safety';
 
 const nodeTypes = { ewe: EweNode };
-type AppNode = Node<{ node: WorkflowNode }, 'ewe'>;
+type AppNodeData = {
+  node: WorkflowNode;
+  status?: string;
+  duration?: number;
+  port?: string;
+  hasOutgoing?: boolean;
+  onAddNext?: () => void;
+};
+type AppNode = Node<AppNodeData, 'ewe'>;
 type NodePickerContext =
   | { mode: 'free' }
   | { mode: 'after-node'; sourceId: string; sourceHandle?: string }
@@ -106,10 +114,6 @@ export default function App() {
     return workflows.filter(item => item.name.toLowerCase().includes(needle));
   }, [workflows, workflowQuery]);
   const executionByNode = useMemo(() => new Map(execution?.nodeExecutions.map(record => [record.nodeId, record]) ?? []), [execution]);
-  const displayNodes = useMemo(() => nodes.map(node => {
-    const record = executionByNode.get(node.id);
-    return { ...node, data: { ...node.data, status: record?.status, duration: record?.duration, port: record?.port } };
-  }), [nodes, executionByNode]);
   const displayEdges = useMemo(() => edges.map(edge => {
     const sourceStatus = executionByNode.get(edge.source)?.status;
     const targetStatus = executionByNode.get(edge.target)?.status;
@@ -144,6 +148,21 @@ export default function App() {
     setNodeQuery('');
     setNodeCategory('all');
   }, []);
+  const displayNodes = useMemo(() => nodes.map(node => {
+    const record = executionByNode.get(node.id);
+    const hasOutgoing = edges.some(edge => edge.source === node.id);
+    return {
+      ...node,
+      data: {
+        ...node.data,
+        status: record?.status,
+        duration: record?.duration,
+        port: record?.port,
+        hasOutgoing,
+        onAddNext: () => openNodePicker({ mode: 'after-node', sourceId: node.id }),
+      },
+    };
+  }), [nodes, edges, executionByNode, openNodePicker]);
 
   // ─── Keyboard shortcuts ────────────────────────────────────────
   const handleKeyDown = useCallback((event: KeyboardEvent) => {

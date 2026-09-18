@@ -48,8 +48,8 @@ test('node context menu can quick-configure, duplicate and delete nodes', async 
   await page.getByTestId('quick-config-popover').getByLabel('Note').fill('Configured from quick popover');
   await page.getByRole('button', { name: 'Open full config' }).click();
   await expect(page.getByTestId('param-note')).toHaveValue('Configured from quick popover');
-  await page.locator(`[data-id="${firstId}"]`).click({ button: 'right' });
-  await page.getByRole('menuitem', { name: 'Add next node' }).click();
+  await page.locator(`[data-id="${firstId}"] [data-testid="node-add-next"]`).click();
+  await expect(page.getByTestId('node-picker')).toBeVisible();
   await page.getByTestId('add-set').click();
   await expect(page.getByTestId('canvas-node')).toHaveCount(2);
   await expect(page.locator('.react-flow__edge')).toHaveCount(1);

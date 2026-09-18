@@ -758,6 +758,46 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
   transition: opacity var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 .react-flow__node:hover .ewe-node { border-color: #66666d; transform: translateY(-2px) scale(1.01); background: #2b2b2b; }
+.ewe-node-add-next {
+  position: absolute;
+  right: -78px;
+  top: 50%;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: #f4f4f5;
+  background: #303030;
+  border: 1px solid #54545a;
+  border-radius: 7px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.05);
+  font-size: 21px;
+  line-height: 1;
+  font-weight: 700;
+  transform: translateY(-50%);
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.ewe-node-add-next::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  width: 41px;
+  height: 2px;
+  background: #55555b;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.ewe-node-add-next:hover,
+.ewe-node-add-next:focus-visible {
+  color: #1a0b02;
+  background: var(--accent);
+  border-color: #ff8a33;
+  box-shadow: 0 0 0 4px rgba(255,109,0,.14), 0 14px 30px rgba(0,0,0,.45);
+  transform: translateY(-50%) scale(1.06);
+}
 .ewe-node-topline { display: flex; flex-direction: column; align-items: center; gap: 9px; }
 .ewe-node-icon {
   display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0;
