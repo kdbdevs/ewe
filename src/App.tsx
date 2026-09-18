@@ -43,6 +43,7 @@ const nodeCategories: Array<{ id: string; label: string; types: string[] }> = [
   { id: 'logic', label: 'Logic', types: ['if', 'switch', 'merge', 'loop', 'wait'] },
   { id: 'data', label: 'Data', types: ['set'] },
   { id: 'http', label: 'HTTP', types: ['httpRequest'] },
+  { id: 'integrations', label: 'Integrations', types: ['telegram', 'github', 'googleSheets'] },
   { id: 'ai', label: 'AI', types: ['ai', 'hermesAgent'] },
   { id: 'code', label: 'Code', types: ['code'] },
 ] ;
@@ -50,12 +51,15 @@ const categoryByType = new Map(nodeCategories.flatMap(category => category.id ==
 const quickConfigKeys: Record<string, string[]> = {
   ai: ['model', 'userPrompt', 'systemPrompt', 'temperature'],
   code: ['source', 'timeout'],
+  github: ['action', 'owner', 'repo', 'title'],
+  googleSheets: ['spreadsheetId', 'range', 'values', 'valueInputOption'],
   hermesAgent: ['prompt', 'model', 'timeout'],
   httpRequest: ['method', 'url', 'bodyType', 'body'],
   if: ['field', 'operator', 'value'],
   schedule: ['cron', 'enabled', 'runMissed'],
   set: ['field', 'value'],
   switch: ['field', 'mode', 'rules'],
+  telegram: ['chatId', 'text', 'parseMode'],
   webhook: ['path', 'enabled', 'secret'],
 };
 const initialViewport = { x: 30, y: 50, zoom: 0.85 };

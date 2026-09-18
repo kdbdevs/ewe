@@ -67,7 +67,8 @@ test('Phase 6 Hermes node fields in registry', async () => {
   expect(meta!.fields.length).toBe(4);
 });
 
-test('All nodes total count is 13 (Phase 1-6)', async () => {
+test('All nodes total count includes native app connectors', async () => {
   const { registry } = await import('../src/nodes/registry');
-  expect(registry.length).toBe(13);
+  expect(registry.length).toBe(16);
+  expect(registry.map(def => def.type)).toEqual(expect.arrayContaining(['telegram', 'github', 'googleSheets']));
 });

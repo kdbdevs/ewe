@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, closeSync
 import { dirname } from 'node:path';
 import type { Workflow } from '../model';
 
-export type CredentialType = 'openaiApiKey' | 'httpHeaderAuth' | 'webhookSecret';
+export type CredentialType = 'openaiApiKey' | 'httpHeaderAuth' | 'webhookSecret' | 'telegramBotToken' | 'githubToken' | 'googleAccessToken';
 
 export interface CredentialSummary {
   id: string;
@@ -18,6 +18,9 @@ export interface CredentialPayload {
   headerName?: string;
   headerValue?: string;
   secret?: string;
+  botToken?: string;
+  token?: string;
+  accessToken?: string;
 }
 
 interface StoredCredential extends CredentialSummary {
@@ -26,7 +29,7 @@ interface StoredCredential extends CredentialSummary {
   data: string;
 }
 
-const VALID_TYPES = new Set<CredentialType>(['openaiApiKey', 'httpHeaderAuth', 'webhookSecret']);
+const VALID_TYPES = new Set<CredentialType>(['openaiApiKey', 'httpHeaderAuth', 'webhookSecret', 'telegramBotToken', 'githubToken', 'googleAccessToken']);
 
 function writeAtomic(path: string, value: unknown) {
   mkdirSync(dirname(path), { recursive: true });
@@ -59,6 +62,9 @@ function assertPayload(type: CredentialType, payload: CredentialPayload) {
     if (!String(payload.headerValue || '').trim()) throw new Error('Header value is required');
   }
   if (type === 'webhookSecret' && !String(payload.secret || '').trim()) throw new Error('Webhook secret is required');
+  if (type === 'telegramBotToken' && !String(payload.botToken || '').trim()) throw new Error('Telegram bot token is required');
+  if (type === 'githubToken' && !String(payload.token || '').trim()) throw new Error('GitHub token is required');
+  if (type === 'googleAccessToken' && !String(payload.accessToken || '').trim()) throw new Error('Google access token is required');
 }
 
 export class CredentialStore {
@@ -121,7 +127,7 @@ export class CredentialStore {
   verify(id: string, value: string) {
     const found = this.get(id);
     if (!found) return false;
-    const secret = found.payload.apiKey || found.payload.headerValue || found.payload.secret || '';
+    const secret = found.payload.apiKey || found.payload.headerValue || found.payload.secret || found.payload.botToken || found.payload.token || found.payload.accessToken || '';
     const a = Buffer.from(secret);
     const b = Buffer.from(value);
     return a.length === b.length && timingSafeEqual(a, b);
@@ -146,6 +152,18 @@ export class CredentialStore {
         if (node.type === 'webhook' && node.credentials.webhookSecret) {
           const credential = this.get(node.credentials.webhookSecret);
           if (credential?.payload.secret) parameters.secret = credential.payload.secret;
+        }
+        if (node.type === 'telegram' && node.credentials.telegramBotToken) {
+          const credential = this.get(node.credentials.telegramBotToken);
+          if (credential?.payload.botToken) parameters.botToken = credential.payload.botToken;
+        }
+        if (node.type === 'github' && node.credentials.githubToken) {
+          const credential = this.get(node.credentials.githubToken);
+          if (credential?.payload.token) parameters.token = credential.payload.token;
+        }
+        if (node.type === 'googleSheets' && node.credentials.googleAccessToken) {
+          const credential = this.get(node.credentials.googleAccessToken);
+          if (credential?.payload.accessToken) parameters.accessToken = credential.payload.accessToken;
         }
         return { ...node, parameters };
       }),

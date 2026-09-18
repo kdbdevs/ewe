@@ -88,3 +88,32 @@ test('HTTP header credentials inject encrypted header parameters at runtime', as
   const hydrated = store.hydrateWorkflow(saved);
   expect(JSON.parse(String(hydrated.nodes[0].parameters.headers))).toEqual({ 'x-base': 'yes', Authorization: 'Bearer secret' });
 });
+
+test('app connector credentials hydrate only at runtime', async () => {
+  dir = await mkdtemp(join(tmpdir(), 'ewe-credentials-'));
+  const store = new CredentialStore(join(dir, 'credentials.json'));
+  const telegram = store.create({ name: 'Telegram bot', type: 'telegramBotToken', data: { botToken: '123:telegram' } });
+  const github = store.create({ name: 'GitHub automation', type: 'githubToken', data: { token: 'ghp_secret' } });
+  const google = store.create({ name: 'Google Sheets', type: 'googleAccessToken', data: { accessToken: 'ya29.secret' } });
+  const now = new Date().toISOString();
+  const saved: Workflow = {
+    id: 'wf-connectors',
+    name: 'Connector credentials',
+    enabled: false,
+    settings: {},
+    createdAt: now,
+    updatedAt: now,
+    nodes: [
+      { id: 'tg', type: 'telegram', name: 'Telegram', position: { x: 0, y: 0 }, credentials: { telegramBotToken: telegram.id }, parameters: { apiBaseUrl: 'https://api.telegram.org', botToken: '', chatId: '1', text: 'Hi', parseMode: 'none', disableWebPagePreview: 'no', timeout: 30000 } },
+      { id: 'gh', type: 'github', name: 'GitHub', position: { x: 0, y: 0 }, credentials: { githubToken: github.id }, parameters: { apiBaseUrl: 'https://api.github.com', token: '', action: 'createIssue', owner: 'kdbdevs', repo: 'ewe', title: 'Issue', body: '', eventType: 'ewe.workflow', clientPayload: '{}', timeout: 30000 } },
+      { id: 'gs', type: 'googleSheets', name: 'Sheets', position: { x: 0, y: 0 }, credentials: { googleAccessToken: google.id }, parameters: { apiBaseUrl: 'https://sheets.googleapis.com', accessToken: '', spreadsheetId: 'sheet', range: 'Sheet1!A:Z', values: '["Hi"]', valueInputOption: 'USER_ENTERED', timeout: 30000 } },
+    ],
+    connections: [],
+  };
+
+  const hydrated = store.hydrateWorkflow(saved);
+  expect(hydrated.nodes[0].parameters.botToken).toBe('123:telegram');
+  expect(hydrated.nodes[1].parameters.token).toBe('ghp_secret');
+  expect(hydrated.nodes[2].parameters.accessToken).toBe('ya29.secret');
+  expect(workflowDocument(saved).nodes.map(node => node.credentials)).toEqual([{}, {}, {}]);
+});

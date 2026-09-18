@@ -5,6 +5,9 @@ const TYPE_LABEL: Record<CredentialType, string> = {
   openaiApiKey: 'OpenAI API Key',
   httpHeaderAuth: 'HTTP Header Auth',
   webhookSecret: 'Webhook Secret',
+  telegramBotToken: 'Telegram Bot Token',
+  githubToken: 'GitHub Token',
+  googleAccessToken: 'Google Access Token',
 };
 
 export default function CredentialsPanel({ credentials, onCreate, onDelete }: {
@@ -19,6 +22,9 @@ export default function CredentialsPanel({ credentials, onCreate, onDelete }: {
   const [headerName, setHeaderName] = useState('Authorization');
   const [headerValue, setHeaderValue] = useState('');
   const [secret, setSecret] = useState('');
+  const [botToken, setBotToken] = useState('');
+  const [token, setToken] = useState('');
+  const [accessToken, setAccessToken] = useState('');
   const [message, setMessage] = useState('');
   const grouped = useMemo(() => credentials.reduce<Record<string, number>>((acc, item) => ({ ...acc, [item.type]: (acc[item.type] || 0) + 1 }), {}), [credentials]);
 
@@ -27,10 +33,13 @@ export default function CredentialsPanel({ credentials, onCreate, onDelete }: {
     const data: CredentialPayload =
       type === 'openaiApiKey' ? { apiKey } :
       type === 'httpHeaderAuth' ? { headerName, headerValue } :
-      { secret };
+      type === 'webhookSecret' ? { secret } :
+      type === 'telegramBotToken' ? { botToken } :
+      type === 'githubToken' ? { token } :
+      { accessToken };
     try {
       await onCreate({ name, type, data });
-      setName(''); setApiKey(''); setHeaderValue(''); setSecret(''); setOpen(false);
+      setName(''); setApiKey(''); setHeaderValue(''); setSecret(''); setBotToken(''); setToken(''); setAccessToken(''); setOpen(false);
       setMessage('Credential saved');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
@@ -41,7 +50,7 @@ export default function CredentialsPanel({ credentials, onCreate, onDelete }: {
     <header>
       <div>
         <h2>Credentials</h2>
-        <p>{credentials.length} saved · {grouped.openaiApiKey || 0} AI · {grouped.httpHeaderAuth || 0} HTTP · {grouped.webhookSecret || 0} Webhook</p>
+        <p>{credentials.length} saved · {grouped.openaiApiKey || 0} AI · {grouped.httpHeaderAuth || 0} HTTP · {grouped.telegramBotToken || 0} Telegram · {grouped.githubToken || 0} GitHub · {grouped.googleAccessToken || 0} Google</p>
       </div>
       <button type="button" onClick={() => setOpen(current => !current)}>{open ? 'Close' : '+ Add'}</button>
     </header>
@@ -57,6 +66,9 @@ export default function CredentialsPanel({ credentials, onCreate, onDelete }: {
         <label>Header value<input data-testid="credential-header-value" type="password" value={headerValue} onChange={event => setHeaderValue(event.target.value)} autoComplete="off" /></label>
       </> : null}
       {type === 'webhookSecret' ? <label>Secret<input data-testid="credential-secret" type="password" value={secret} onChange={event => setSecret(event.target.value)} autoComplete="off" /></label> : null}
+      {type === 'telegramBotToken' ? <label>Bot token<input data-testid="credential-bot-token" type="password" value={botToken} onChange={event => setBotToken(event.target.value)} autoComplete="off" /></label> : null}
+      {type === 'githubToken' ? <label>Token<input data-testid="credential-token" type="password" value={token} onChange={event => setToken(event.target.value)} autoComplete="off" /></label> : null}
+      {type === 'googleAccessToken' ? <label>Access token<input data-testid="credential-access-token" type="password" value={accessToken} onChange={event => setAccessToken(event.target.value)} autoComplete="off" /></label> : null}
       <button type="button" className="primary" data-testid="save-credential" onClick={submit}>Save credential</button>
     </div> : null}
 

@@ -3,14 +3,17 @@ import type { NodeMetadata, ParameterField } from '../nodes/registry';
 import type { WorkflowNode } from '../model';
 import type { CredentialSummary, CredentialType } from '../api/credentials';
 
-const JSON_OBJECT_FIELDS = new Set(['headers', 'query']);
-const JSON_ARRAY_FIELDS = new Set(['rules']);
-const SECRET_FIELDS = new Set(['apiKey', 'secret']);
+const JSON_OBJECT_FIELDS = new Set(['headers', 'query', 'clientPayload']);
+const JSON_ARRAY_FIELDS = new Set(['rules', 'values']);
+const SECRET_FIELDS = new Set(['apiKey', 'secret', 'botToken', 'token', 'accessToken']);
 
 const CREDENTIAL_SLOTS: Record<string, Array<{ key: string; type: CredentialType; label: string; hint: string }>> = {
   ai: [{ key: 'openaiApiKey', type: 'openaiApiKey', label: 'OpenAI API key', hint: 'Overrides the API key parameter at run time.' }],
   httpRequest: [{ key: 'httpHeaderAuth', type: 'httpHeaderAuth', label: 'HTTP header auth', hint: 'Injects one encrypted header into this request.' }],
   webhook: [{ key: 'webhookSecret', type: 'webhookSecret', label: 'Webhook secret', hint: 'Validates inbound x-ewe-secret without storing the secret in the workflow.' }],
+  telegram: [{ key: 'telegramBotToken', type: 'telegramBotToken', label: 'Telegram bot token', hint: 'Injects the encrypted bot token at run time.' }],
+  github: [{ key: 'githubToken', type: 'githubToken', label: 'GitHub token', hint: 'Injects the encrypted GitHub token at run time.' }],
+  googleSheets: [{ key: 'googleAccessToken', type: 'googleAccessToken', label: 'Google access token', hint: 'Injects the encrypted OAuth access token at run time.' }],
 };
 
 function acceptsExpression(value: string) {
@@ -47,6 +50,9 @@ function fieldHint(field: ParameterField, node: WorkflowNode) {
   if (field.key === 'headers') return 'JSON object of string headers, for example {"x-api-key":"{{$json.token}}"}';
   if (field.key === 'query') return 'JSON object of query params. Values are resolved before the request runs.';
   if (field.key === 'rules') return 'JSON array. Example: [{"operator":"equals","value":"paid","port":"alpha"}]';
+  if (field.key === 'values') return 'JSON row or rows. Example: ["Ada", "paid"] or [["Ada"], ["Grace"]].';
+  if (field.key === 'clientPayload') return 'JSON object sent with repository_dispatch.';
+  if (field.key === 'apiBaseUrl') return 'Default points to the provider API. Override only for tests or private gateways.';
   if (field.key === 'body' && node.parameters.bodyType === 'json') return 'JSON is validated before save hints; expressions are allowed.';
   if (field.key === 'apiKey') return 'Temporary plaintext field. Credentials vault is the next hardening step.';
   if (field.key === 'secret') return 'Used to validate inbound webhooks. Keep this hard to guess.';
