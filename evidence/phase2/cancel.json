@@ -1,0 +1,77 @@
+{
+  "running": {
+    "executionId": "6ecae4b8-deae-490f-8d49-843285c2e488",
+    "workflowId": "1f4ebe82-dbd7-4da3-ad02-76b4eca2819d",
+    "startedAt": "2026-09-17T17:55:25.003Z",
+    "finishedAt": null,
+    "status": "running",
+    "nodeExecutions": [
+      {
+        "nodeId": "start",
+        "status": "success",
+        "input": {},
+        "output": {},
+        "startedAt": "2026-09-17T17:55:25.005Z",
+        "finishedAt": "2026-09-17T17:55:25.005Z",
+        "duration": 0,
+        "port": "main"
+      },
+      {
+        "nodeId": "http",
+        "status": "running",
+        "input": {},
+        "output": null,
+        "startedAt": "2026-09-17T17:55:25.006Z",
+        "finishedAt": null,
+        "duration": 0
+      },
+      {
+        "nodeId": "after",
+        "status": "waiting",
+        "input": null,
+        "output": null,
+        "startedAt": null,
+        "finishedAt": null,
+        "duration": 0
+      }
+    ]
+  },
+  "result": {
+    "executionId": "6ecae4b8-deae-490f-8d49-843285c2e488",
+    "workflowId": "1f4ebe82-dbd7-4da3-ad02-76b4eca2819d",
+    "startedAt": "2026-09-17T17:55:25.003Z",
+    "finishedAt": "2026-09-17T17:55:25.070Z",
+    "status": "cancelled",
+    "nodeExecutions": [
+      {
+        "nodeId": "start",
+        "status": "success",
+        "input": {},
+        "output": {},
+        "startedAt": "2026-09-17T17:55:25.005Z",
+        "finishedAt": "2026-09-17T17:55:25.005Z",
+        "duration": 0,
+        "port": "main"
+      },
+      {
+        "nodeId": "http",
+        "status": "cancelled",
+        "input": {},
+        "output": null,
+        "startedAt": "2026-09-17T17:55:25.006Z",
+        "finishedAt": "2026-09-17T17:55:25.069Z",
+        "duration": 63,
+        "error": "Execution cancelled"
+      },
+      {
+        "nodeId": "after",
+        "status": "cancelled",
+        "input": null,
+        "output": null,
+        "startedAt": null,
+        "finishedAt": "2026-09-17T17:55:25.070Z",
+        "duration": 0
+      }
+    ]
+  }
+}

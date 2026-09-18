@@ -1,0 +1,168 @@
+{
+  "workflow": {
+    "id": "60489f54-46f7-4807-9b6b-c8bfd49de455",
+    "name": "Engine proof",
+    "enabled": false,
+    "nodes": [
+      {
+        "id": "start",
+        "type": "manualTrigger",
+        "name": "start",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "credentials": {},
+        "parameters": {
+          "note": ""
+        }
+      },
+      {
+        "id": "set",
+        "type": "set",
+        "name": "set",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "credentials": {},
+        "parameters": {
+          "field": "answer",
+          "value": "yes"
+        }
+      },
+      {
+        "id": "if",
+        "type": "if",
+        "name": "if",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "credentials": {},
+        "parameters": {
+          "field": "answer",
+          "operator": "equals",
+          "value": "yes"
+        }
+      },
+      {
+        "id": "http",
+        "type": "httpRequest",
+        "name": "http",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "credentials": {},
+        "parameters": {
+          "method": "DELETE",
+          "url": "http://127.0.0.1:36395",
+          "headers": "{\"x-proof\":\"ewe\"}",
+          "query": "{\"q\":\"a b\"}",
+          "bodyType": "json",
+          "body": "{\"proof\":true}",
+          "timeout": 30000
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "edge0",
+        "source": "start",
+        "target": "set",
+        "sourcePort": "main",
+        "targetPort": "main"
+      },
+      {
+        "id": "edge1",
+        "source": "set",
+        "target": "if",
+        "sourcePort": "main",
+        "targetPort": "main"
+      },
+      {
+        "id": "edge2",
+        "source": "if",
+        "target": "http",
+        "sourcePort": "true",
+        "targetPort": "main"
+      }
+    ],
+    "settings": {},
+    "createdAt": "2026-09-17T17:55:25.893Z",
+    "updatedAt": "2026-09-17T17:55:25.893Z"
+  },
+  "result": {
+    "executionId": "4c296e78-16da-421d-8fb7-775f0a62d28e",
+    "workflowId": "60489f54-46f7-4807-9b6b-c8bfd49de455",
+    "startedAt": "2026-09-17T17:55:25.897Z",
+    "finishedAt": "2026-09-17T17:55:25.906Z",
+    "status": "success",
+    "nodeExecutions": [
+      {
+        "nodeId": "start",
+        "status": "success",
+        "input": {},
+        "output": {},
+        "startedAt": "2026-09-17T17:55:25.897Z",
+        "finishedAt": "2026-09-17T17:55:25.898Z",
+        "duration": 1,
+        "port": "main"
+      },
+      {
+        "nodeId": "set",
+        "status": "success",
+        "input": {},
+        "output": {
+          "answer": "yes"
+        },
+        "startedAt": "2026-09-17T17:55:25.899Z",
+        "finishedAt": "2026-09-17T17:55:25.899Z",
+        "duration": 0,
+        "port": "main"
+      },
+      {
+        "nodeId": "if",
+        "status": "success",
+        "input": {
+          "answer": "yes"
+        },
+        "output": {
+          "answer": "yes"
+        },
+        "startedAt": "2026-09-17T17:55:25.900Z",
+        "finishedAt": "2026-09-17T17:55:25.900Z",
+        "duration": 0,
+        "port": "true"
+      },
+      {
+        "nodeId": "http",
+        "status": "success",
+        "input": {
+          "answer": "yes"
+        },
+        "output": {
+          "status": 201,
+          "headers": {
+            "connection": "keep-alive",
+            "content-type": "application/json",
+            "date": "Thu, 17 Sep 2026 17:55:25 GMT",
+            "keep-alive": "timeout=5",
+            "transfer-encoding": "chunked"
+          },
+          "body": {
+            "method": "DELETE",
+            "url": "/?q=a+b",
+            "header": "ewe",
+            "body": "{\"proof\":true}"
+          }
+        },
+        "startedAt": "2026-09-17T17:55:25.901Z",
+        "finishedAt": "2026-09-17T17:55:25.905Z",
+        "duration": 4,
+        "port": "main"
+      }
+    ]
+  }
+}

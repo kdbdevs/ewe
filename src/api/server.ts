@@ -1,0 +1,276 @@
+import http from 'node:http';
+import { randomUUID } from 'node:crypto';
+import { readFileSync, existsSync, statSync, mkdirSync, writeFileSync, renameSync, openSync, closeSync, fsyncSync } from 'node:fs';
+import { resolve, extname, sep, dirname } from 'node:path';
+import { parseArgs } from 'node:util';
+import { WorkflowStore } from './store';
+import type { Workflow } from '../model';
+import { validateWorkflow } from '../validation';
+import { workflowDocument } from '../transfer';
+import { ExecutionEngine } from '../engine/engine';
+import { ExecutionStore } from '../engine/store';
+import { ExecutionValidationError } from '../engine/graph';
+import { getNodeMetadata } from '../nodes/registry';
+
+const { values } = parseArgs({ options: { port: { type: 'string', default: '8765' }, data: { type: 'string', default: 'data/workflows.json' } } });
+const dataFile = resolve(values.data!);
+const store = new WorkflowStore(dataFile);
+const engine = new ExecutionEngine(new ExecutionStore(dataFile + '.executions.json'));
+const dist = resolve('dist');
+const json = (res: http.ServerResponse, status: number, value?: unknown) => {
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+  res.end(value === undefined ? undefined : JSON.stringify(value));
+};
+class RequestError extends Error {
+  constructor(public status: number, message: string) { super(message); }
+}
+async function body(req: http.IncomingMessage): Promise<Record<string, unknown>> {
+  if (!req.headers['content-type']?.startsWith('application/json')) throw new RequestError(415, 'Use application/json');
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > 1024 * 1024) throw new RequestError(413, 'Body exceeds 1 MiB');
+    chunks.push(chunk);
+  }
+  try {
+    const parsed = JSON.parse(Buffer.concat(chunks).toString());
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error();
+    return parsed;
+  } catch { throw new RequestError(400, 'Expected a JSON object'); }
+}
+function name(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim() || value.length > 120) throw new RequestError(400, 'Name must be 1-120 characters');
+  return value.trim();
+}
+function sendSSE(res: http.ServerResponse, event: string, data: unknown, id?: number) {
+  try {
+    if (id !== undefined) res.write(`id: ${id}\n`);
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  } catch { /* client disconnected */ }
+}
+
+// ─── Webhook registry ───────────────────────────────────────────────
+interface WebhookEntry { workflowId: string; nodeId: string; path: string; secret: string; enabled: boolean; }
+function getWebhookEntries(workflow: Workflow): WebhookEntry[] {
+  return workflow.nodes
+    .filter(n => n.type === 'webhook')
+    .map(n => ({
+      workflowId: workflow.id,
+      nodeId: n.id,
+      path: String(n.parameters.path || '/hooks/incoming'),
+      secret: String(n.parameters.secret || ''),
+      enabled: (n.parameters.enabled || 'yes') === 'yes',
+    }));
+}
+
+// ─── Schedule manager ──────────────────────────────────────────────
+interface ScheduleState { lastRun: string | null; running: boolean; }
+const scheduleStateFile = dataFile + '.schedules.json';
+function loadSchedules(): Map<string, ScheduleState> {
+  try {
+    if (!existsSync(scheduleStateFile)) return new Map();
+    const raw = JSON.parse(readFileSync(scheduleStateFile, 'utf8'));
+    return new Map(Object.entries(raw));
+  } catch { return new Map(); }
+}
+function saveSchedules(state: Map<string, ScheduleState>) {
+  const fd = openSync(scheduleStateFile + '.tmp', 'w', 0o600);
+  try { writeFileSync(fd, JSON.stringify(Object.fromEntries(state), null, 2)); fsyncSync(fd); }
+  finally { closeSync(fd); }
+  renameSync(scheduleStateFile + '.tmp', scheduleStateFile);
+}
+
+function matchCron(expr: string, date: Date): boolean {
+  // Basic 5-field cron: min hour dom month dow
+  const parts = expr.trim().split(/\s+/);
+  if (parts.length < 5) return false;
+  const [min, hour, dom, month, dow] = parts;
+  const match = (p: string, v: number, max: number) => {
+    if (p === '*') return true;
+    for (const part of p.split(',')) {
+      if (part.includes('/')) {
+        const [base, step] = part.split('/');
+        const s = parseInt(step, 10);
+        if (base === '*' && v % s === 0) return true;
+      } else if (part.includes('-')) {
+        const [a, b] = part.split('-').map(Number);
+        if (v >= a && v <= b) return true;
+      } else if (parseInt(part, 10) === v) return true;
+    }
+    return false;
+  };
+  const d = date.getUTCDate(), m = date.getUTCMonth() + 1, y = date.getUTCDay();
+  return match(min, date.getUTCMinutes(), 60) &&
+         match(hour, date.getUTCHours(), 24) &&
+         match(dom, d, 31) &&
+         match(month, m, 12) &&
+         match(dow, y, 7);
+}
+
+// ─── Open SSE responses ────────────────────────────────────────────
+const streams = new Set<http.ServerResponse>();
+function closeStream(res: http.ServerResponse) {
+  streams.delete(res);
+  try { res.end(); } catch { /* already gone */ }
+}
+
+// ─── API router ────────────────────────────────────────────────────
+async function api(req: http.IncomingMessage, res: http.ServerResponse, path: string) {
+  // Webhook endpoint: POST /api/hooks/:workflowId
+  const hookMatch = path.match(/^\/api\/hooks\/([\w-]+)$/);
+  if (hookMatch && req.method === 'POST') {
+    const workflowId = hookMatch[1];
+    const workflow = store.get(workflowId);
+    if (!workflow) return json(res, 404, { error: 'Workflow not found' });
+    const entries = getWebhookEntries(workflow).filter(e => e.enabled);
+    if (entries.length === 0) return json(res, 404, { error: 'No enabled webhook' });
+    const entry = entries[0];
+    // Validate secret
+    if (entry.secret) {
+      const provided = req.headers['x-ewe-secret'] as string || '';
+      if (provided !== entry.secret) return json(res, 401, { error: 'Invalid secret' });
+    }
+    // Dedup: reject if already running (bounded concurrency = 1 per webhook)
+    const state = loadSchedules();
+    const key = `hook:${workflowId}`;
+    if (state.get(key)?.running) return json(res, 429, { error: 'Already running' });
+    state.set(key, { lastRun: new Date().toISOString(), running: true });
+    saveSchedules(state);
+    try {
+      const execution = engine.start(workflow);
+      return json(res, 202, { executionId: execution.executionId, status: 'started' });
+    } finally {
+      const s = loadSchedules();
+      s.set(key, { lastRun: new Date().toISOString(), running: false });
+      saveSchedules(s);
+    }
+  }
+
+  // Schedule trigger: POST /api/schedules/:workflowId/trigger
+  const schedMatch = path.match(/^\/api\/schedules\/([\w-]+)\/trigger$/);
+  if (schedMatch && req.method === 'POST') {
+    const workflowId = schedMatch[1];
+    const workflow = store.get(workflowId);
+    if (!workflow) return json(res, 404, { error: 'Workflow not found' });
+    const hasSchedule = workflow.nodes.some(n => n.type === 'schedule' && (n.parameters.enabled || 'yes') === 'yes');
+    if (!hasSchedule) return json(res, 400, { error: 'No enabled schedule' });
+    const execution = engine.start(workflow);
+    return json(res, 202, { executionId: execution.executionId, status: 'started' });
+  }
+
+  if (path === '/api/workflows/import' && req.method === 'POST') {
+    const input = await body(req);
+    let workflow: Workflow;
+    try { workflow = workflowDocument(input); }
+    catch (error) { throw new RequestError(400, (error as Error).message); }
+    const now = new Date().toISOString();
+    return json(res, 201, store.put({ ...workflow, id: randomUUID(), createdAt: now, updatedAt: now }));
+  }
+  const exportPath = path.match(/^\/api\/workflows\/([\w-]+)\/export$/);
+  if (exportPath && req.method === 'GET') {
+    const workflow = store.get(exportPath[1]);
+    if (!workflow) return json(res, 404, { error: 'Workflow not found' });
+    return json(res, 200, workflowDocument(workflow));
+  }
+  const eventsMatch = path.match(/^\/api\/workflows\/([\w-]+)\/executions\/([\w-]+)\/events$/);
+  if (eventsMatch && req.method === 'GET') {
+    const [, workflowId, executionId] = eventsMatch;
+    const execution = engine.history.get(executionId);
+    if (!execution || execution.workflowId !== workflowId) return json(res, 404, { error: 'Execution not found' });
+    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
+    res.flushHeaders?.();
+    streams.add(res);
+    const cursorRaw = (req.headers['last-event-id'] as string) || '0';
+    const cursorNum = parseInt(cursorRaw, 10) || 0;
+    const isReplay = cursorNum > 0 && cursorNum <= (execution.sequence || 0);
+    sendSSE(res, 'execution.snapshot', { sequence: execution.sequence || 0, execution, replay: isReplay }, execution.sequence || 0);
+    let lastSent = execution.sequence || 0;
+    const unsubscribe = engine.history.subscribe(executionId, (updated) => {
+      if (updated.sequence && updated.sequence > lastSent) {
+        lastSent = updated.sequence;
+        sendSSE(res, 'execution.snapshot', { sequence: updated.sequence, execution: updated, replay: false }, updated.sequence);
+      }
+    });
+    const tick = setInterval(() => sendSSE(res, 'heartbeat', { ts: Date.now() }, undefined), 15000);
+    req.on('close', () => { clearInterval(tick); unsubscribe(); closeStream(res); });
+    return;
+  }
+  const executionPath = path.match(/^\/api\/workflows\/([\w-]+)\/executions(?:\/([\w-]+)(\/cancel)?)?$/);
+  if (executionPath) {
+    const [, workflowId, executionId] = executionPath;
+    if (executionId) {
+      const execution = engine.history.get(executionId);
+      if (!execution || execution.workflowId !== workflowId) return json(res, 404, { error: 'Execution not found' });
+      if (executionPath[3]) {
+        if (req.method === 'POST') return json(res, 200, await engine.cancel(executionId));
+      } else if (req.method === 'GET') return json(res, 200, execution);
+    } else {
+      if (req.method === 'GET') return json(res, 200, engine.history.list().filter(item => item.workflowId === workflowId));
+      if (req.method === 'POST') {
+        const workflow = store.get(workflowId);
+        if (!workflow) return json(res, 404, { error: 'Workflow not found' });
+        return json(res, 202, engine.start(workflow));
+      }
+    }
+    return json(res, 405, { error: 'Method not allowed' });
+  }
+  const match = path.match(/^\/api\/workflows(?:\/([\w-]+))?$/);
+  if (!match) return json(res, 404, { error: 'Not found' });
+  const id = match[1];
+  if (!id) {
+    if (req.method === 'GET') return json(res, 200, store.list());
+    if (req.method === 'POST') {
+      const input = await body(req);
+      const now = new Date().toISOString();
+      const workflow: Workflow = { id: randomUUID(), name: name(input.name), enabled: false, nodes: [], connections: [], settings: {}, createdAt: now, updatedAt: now };
+      return json(res, 201, store.put(workflow));
+    }
+  } else {
+    const current = store.get(id);
+    if (!current) return json(res, 404, { error: 'Workflow not found' });
+    if (req.method === 'GET') return json(res, 200, current);
+    if (req.method === 'DELETE') { store.delete(id); return json(res, 204); }
+    if (req.method === 'PUT') {
+      const input = await body(req);
+      if (!store.get(id)) return json(res, 404, { error: 'Workflow not found' });
+      const workflow = { ...input, id, name: name(input.name), createdAt: current.createdAt, updatedAt: new Date().toISOString() } as Workflow;
+      const invalid = validateWorkflow(workflow);
+      if (invalid) return json(res, 400, { error: invalid });
+      return json(res, 200, store.put(workflow));
+    }
+  }
+  return json(res, 405, { error: 'Method not allowed' });
+}
+
+const mime: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
+const server = http.createServer(async (req, res) => {
+  try {
+    const host = req.headers.host || '';
+    if (!/^127\.0\.0\.1:\d+$/.test(host)) return json(res, 403, { error: 'Loopback host required' });
+    if (req.headers.origin && ![`http://${host}`, 'http://127.0.0.1:5173'].includes(req.headers.origin)) return json(res, 403, { error: 'Origin not allowed' });
+    const path = new URL(req.url!, `http://${host}`).pathname;
+    if (path.startsWith('/api/')) return await api(req, res, path);
+    if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'Method not allowed' });
+    const file = resolve(dist, '.' + (path === '/' ? '/index.html' : decodeURIComponent(path)));
+    if (!file.startsWith(dist + sep) || !existsSync(file) || !statSync(file).isFile()) return json(res, 404, { error: 'Not found. Build the frontend first.' });
+    res.writeHead(200, { 'Content-Type': mime[extname(file)] || 'application/octet-stream', 'X-Content-Type-Options': 'nosniff' });
+    res.end(req.method === 'HEAD' ? undefined : readFileSync(file));
+  } catch (error) {
+    if (error instanceof ExecutionValidationError) json(res, 400, { error: error.message });
+    else if (error instanceof RequestError) json(res, error.status, { error: error.message });
+    else { console.error(error); json(res, 500, { error: 'Storage or server failure' }); }
+  }
+});
+server.listen(Number(values.port), '127.0.0.1', () => {
+  const address = server.address();
+  if (address && typeof address !== 'string') console.log(`eWe http://127.0.0.1:${address.port}`);
+});
+function shutdown(signal: string) {
+  for (const res of [...streams]) closeStream(res);
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(1), 5000).unref();
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

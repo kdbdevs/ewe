@@ -1,0 +1,75 @@
+{
+  "id": "6905e138-0723-4d38-a2b9-076296a1eff2",
+  "name": "Browser proof 1789665392537",
+  "enabled": false,
+  "nodes": [
+    {
+      "id": "e0f6d9df-4862-4e9f-a809-7322000060ae",
+      "type": "manualTrigger",
+      "name": "Manual Trigger",
+      "position": {
+        "x": 30,
+        "y": 100
+      },
+      "parameters": {
+        "note": "Manual start configuration"
+      },
+      "credentials": {}
+    },
+    {
+      "id": "5f82cb6b-5b01-495c-828a-e47d81a70573",
+      "type": "set",
+      "name": "Set",
+      "position": {
+        "x": 375.88235294117646,
+        "y": 207.05882352941177
+      },
+      "parameters": {
+        "field": "greeting",
+        "value": "Hello eWe"
+      },
+      "credentials": {}
+    },
+    {
+      "id": "185b2a04-7093-4b08-b37f-ce3fb6f5d5a7",
+      "type": "httpRequest",
+      "name": "HTTP Request",
+      "position": {
+        "x": 550,
+        "y": 100
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.com/config-only",
+        "body": "{\"hello\":\"world\"}",
+        "timeout": 45000
+      },
+      "credentials": {}
+    }
+  ],
+  "connections": [
+    {
+      "id": "a6fd93d5-f1ff-4e02-9338-010f9d11acb3",
+      "source": "e0f6d9df-4862-4e9f-a809-7322000060ae",
+      "target": "5f82cb6b-5b01-495c-828a-e47d81a70573",
+      "sourcePort": "main",
+      "targetPort": "main"
+    },
+    {
+      "id": "ab46133b-8de1-4ca9-9599-4a7255ce6494",
+      "source": "5f82cb6b-5b01-495c-828a-e47d81a70573",
+      "target": "185b2a04-7093-4b08-b37f-ce3fb6f5d5a7",
+      "sourcePort": "main",
+      "targetPort": "main"
+    }
+  ],
+  "settings": {
+    "viewport": {
+      "x": 30,
+      "y": 50,
+      "zoom": 0.85
+    }
+  },
+  "createdAt": "2026-09-17T17:16:32.481Z",
+  "updatedAt": "2026-09-17T17:16:33.444Z"
+}

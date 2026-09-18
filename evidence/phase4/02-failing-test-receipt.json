@@ -1,0 +1,1 @@
+{"test":"realtime.test.ts","exit":"1 failed (404 /events)","timestamp":"2026-09-17T21:36Z","base":"05d654cb3f0","evidence":"01-red.log + 02-failing-test-receipt.json (empty before this)"}

@@ -1,0 +1,52 @@
+{
+  "oldPid": 359098,
+  "newPid": 359111,
+  "identicalHistory": [
+    {
+      "executionId": "0cf33b4b-3d4f-4361-ac12-bd39a231d518",
+      "workflowId": "2fabd6c2-9ad8-4215-bb0b-6bf6cebbe710",
+      "startedAt": "2026-09-17T17:55:26.699Z",
+      "finishedAt": "2026-09-17T17:55:26.704Z",
+      "status": "success",
+      "nodeExecutions": [
+        {
+          "nodeId": "start",
+          "status": "success",
+          "input": {},
+          "output": {},
+          "startedAt": "2026-09-17T17:55:26.701Z",
+          "finishedAt": "2026-09-17T17:55:26.702Z",
+          "duration": 1,
+          "port": "main"
+        },
+        {
+          "nodeId": "first",
+          "status": "success",
+          "input": {},
+          "output": {
+            "hello": "world"
+          },
+          "startedAt": "2026-09-17T17:55:26.702Z",
+          "finishedAt": "2026-09-17T17:55:26.703Z",
+          "duration": 1,
+          "port": "main"
+        },
+        {
+          "nodeId": "second",
+          "status": "success",
+          "input": {
+            "hello": "world"
+          },
+          "output": {
+            "hello": "world",
+            "next": "value"
+          },
+          "startedAt": "2026-09-17T17:55:26.703Z",
+          "finishedAt": "2026-09-17T17:55:26.704Z",
+          "duration": 1,
+          "port": "main"
+        }
+      ]
+    }
+  ]
+}
