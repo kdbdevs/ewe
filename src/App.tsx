@@ -19,6 +19,7 @@ import CredentialsPanel from './editor/CredentialsPanel';
 import { useExecution } from './editor/useExecution';
 import KeyboardHelp from './editor/KeyboardHelp';
 import { workflowTemplates } from './templates';
+import ExecutionSummary from './editor/ExecutionSummary';
 
 const nodeTypes = { ewe: EweNode };
 type AppNode = Node<{ node: WorkflowNode }, 'ewe'>;
@@ -347,6 +348,7 @@ export default function App() {
             </ReactFlow>
           </div>
           <div className="ewe-inspector">
+            {workflow && <ExecutionSummary execution={execution} onFocusNode={setSelectedNodeId} />}
             {workflow && <ActivityPanel items={activityEvents} status={execution?.status} />}
             {workflow && <ExecutionInspector workflowId={workflow.id} current={execution} />}
             <CredentialsPanel credentials={credentials} onCreate={createCredential} onDelete={deleteCredential} />
