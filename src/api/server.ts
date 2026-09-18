@@ -4,6 +4,7 @@ import { readFileSync, existsSync, statSync, mkdirSync, writeFileSync, renameSyn
 import { resolve, extname, sep, dirname } from 'node:path';
 import { parseArgs } from 'node:util';
 import { WorkflowStore } from './store';
+import { CredentialStore, type CredentialPayload, type CredentialType } from './credentials';
 import type { Workflow } from '../model';
 import { validateWorkflow } from '../validation';
 import { workflowDocument } from '../transfer';
@@ -15,6 +16,7 @@ import { getNodeMetadata } from '../nodes/registry';
 const { values } = parseArgs({ options: { port: { type: 'string', default: '8765' }, data: { type: 'string', default: 'data/workflows.json' } } });
 const dataFile = resolve(values.data!);
 const store = new WorkflowStore(dataFile);
+const credentials = new CredentialStore(dataFile + '.credentials.json');
 const engine = new ExecutionEngine(new ExecutionStore(dataFile + '.executions.json'));
 const dist = resolve('dist');
 const json = (res: http.ServerResponse, status: number, value?: unknown) => {
@@ -54,7 +56,7 @@ function sendSSE(res: http.ServerResponse, event: string, data: unknown, id?: nu
 // ─── Webhook registry ───────────────────────────────────────────────
 interface WebhookEntry { workflowId: string; nodeId: string; path: string; secret: string; enabled: boolean; }
 function getWebhookEntries(workflow: Workflow): WebhookEntry[] {
-  return workflow.nodes
+  return credentials.hydrateWorkflow(workflow).nodes
     .filter(n => n.type === 'webhook')
     .map(n => ({
       workflowId: workflow.id,
@@ -118,6 +120,30 @@ function closeStream(res: http.ServerResponse) {
 
 // ─── API router ────────────────────────────────────────────────────
 async function api(req: http.IncomingMessage, res: http.ServerResponse, path: string) {
+  const credentialPath = path.match(/^\/api\/credentials(?:\/([\w-]+))?$/);
+  if (credentialPath) {
+    const credentialId = credentialPath[1];
+    if (!credentialId) {
+      if (req.method === 'GET') return json(res, 200, credentials.list());
+      if (req.method === 'POST') {
+        const input = await body(req);
+        try {
+          return json(res, 201, credentials.create({
+            name: name(input.name),
+            type: input.type as CredentialType,
+            data: (input.data || {}) as CredentialPayload,
+          }));
+        } catch (error) {
+          throw new RequestError(400, (error as Error).message);
+        }
+      }
+    } else if (req.method === 'DELETE') {
+      credentials.delete(credentialId);
+      return json(res, 204);
+    }
+    return json(res, 405, { error: 'Method not allowed' });
+  }
+
   // Webhook endpoint: POST /api/hooks/:workflowId
   const hookMatch = path.match(/^\/api\/hooks\/([\w-]+)$/);
   if (hookMatch && req.method === 'POST') {
@@ -139,7 +165,7 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
     state.set(key, { lastRun: new Date().toISOString(), running: true });
     saveSchedules(state);
     try {
-      const execution = engine.start(workflow);
+      const execution = engine.start(credentials.hydrateWorkflow(workflow));
       return json(res, 202, { executionId: execution.executionId, status: 'started' });
     } finally {
       const s = loadSchedules();
@@ -156,7 +182,7 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
     if (!workflow) return json(res, 404, { error: 'Workflow not found' });
     const hasSchedule = workflow.nodes.some(n => n.type === 'schedule' && (n.parameters.enabled || 'yes') === 'yes');
     if (!hasSchedule) return json(res, 400, { error: 'No enabled schedule' });
-    const execution = engine.start(workflow);
+    const execution = engine.start(credentials.hydrateWorkflow(workflow));
     return json(res, 202, { executionId: execution.executionId, status: 'started' });
   }
 
@@ -211,7 +237,7 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
       if (req.method === 'POST') {
         const workflow = store.get(workflowId);
         if (!workflow) return json(res, 404, { error: 'Workflow not found' });
-        return json(res, 202, engine.start(workflow));
+        return json(res, 202, engine.start(credentials.hydrateWorkflow(workflow)));
       }
     }
     return json(res, 405, { error: 'Method not allowed' });

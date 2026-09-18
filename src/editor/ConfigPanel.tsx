@@ -1,10 +1,17 @@
 import { useMemo, useState } from 'react';
 import type { NodeMetadata, ParameterField } from '../nodes/registry';
 import type { WorkflowNode } from '../model';
+import type { CredentialSummary, CredentialType } from '../api/credentials';
 
 const JSON_OBJECT_FIELDS = new Set(['headers', 'query']);
 const JSON_ARRAY_FIELDS = new Set(['rules']);
 const SECRET_FIELDS = new Set(['apiKey', 'secret']);
+
+const CREDENTIAL_SLOTS: Record<string, Array<{ key: string; type: CredentialType; label: string; hint: string }>> = {
+  ai: [{ key: 'openaiApiKey', type: 'openaiApiKey', label: 'OpenAI API key', hint: 'Overrides the API key parameter at run time.' }],
+  httpRequest: [{ key: 'httpHeaderAuth', type: 'httpHeaderAuth', label: 'HTTP header auth', hint: 'Injects one encrypted header into this request.' }],
+  webhook: [{ key: 'webhookSecret', type: 'webhookSecret', label: 'Webhook secret', hint: 'Validates inbound x-ewe-secret without storing the secret in the workflow.' }],
+};
 
 function acceptsExpression(value: string) {
   return value.includes('{{') && value.length <= 20000;
@@ -52,10 +59,12 @@ function formatJson(value: string) {
   return JSON.stringify(JSON.parse(value), null, 2);
 }
 
-export default function ConfigPanel({ node, def, onParameterChange, onNameChange, onDelete }: {
+export default function ConfigPanel({ node, def, credentials, onParameterChange, onCredentialChange, onNameChange, onDelete }: {
   node: WorkflowNode;
   def: NodeMetadata;
+  credentials: CredentialSummary[];
   onParameterChange: (key: string, value: string | number) => void;
+  onCredentialChange: (key: string, credentialId: string) => void;
   onNameChange: (name: string) => void;
   onDelete: () => void;
 }) {
@@ -63,6 +72,7 @@ export default function ConfigPanel({ node, def, onParameterChange, onNameChange
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [fieldMessages, setFieldMessages] = useState<Record<string, string>>({});
   const problems = useMemo(() => Object.fromEntries(def.fields.map(field => [field.key, fieldProblem(field, String(node.parameters[field.key] ?? ''), node.parameters)])), [node.parameters, def.fields]);
+  const credentialSlots = CREDENTIAL_SLOTS[node.type] || [];
 
   const markTouched = (key: string) => setTouched(current => ({ ...current, [key]: true }));
   const setFieldMessage = (key: string, value: string) => setFieldMessages(current => ({ ...current, [key]: value }));
@@ -101,6 +111,25 @@ export default function ConfigPanel({ node, def, onParameterChange, onNameChange
           <input data-testid="node-name" value={node.name} onChange={event => onNameChange(event.target.value)} />
         </label>
       </section>
+
+      {credentialSlots.length ? <section className="ewe-config-section">
+        <div className="ewe-config-section-title"><span>Credentials</span><small>encrypted</small></div>
+        {credentialSlots.map(slot => {
+          const options = credentials.filter(item => item.type === slot.type);
+          return <div key={slot.key} className="ewe-field credential-slot">
+            <div className="ewe-field-label"><span>{slot.label}</span><em>optional</em></div>
+            <select
+              data-testid={`credential-slot-${slot.key}`}
+              value={node.credentials[slot.key] || ''}
+              onChange={event => onCredentialChange(slot.key, event.target.value)}
+            >
+              <option value="">No credential</option>
+              {options.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+            <div className="ewe-field-meta"><span>{options.length ? slot.hint : `Create a ${slot.label} credential first.`}</span></div>
+          </div>;
+        })}
+      </section> : null}
 
       <section className="ewe-config-section">
         <div className="ewe-config-section-title"><span>Parameters</span><small>{def.fields.length} fields</small></div>

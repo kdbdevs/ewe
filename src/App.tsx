@@ -6,6 +6,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import './style.css';
 import { api, type WorkflowSummary } from './api/client';
+import type { CredentialPayload, CredentialSummary, CredentialType } from './api/credentials';
 import { defaultParameters, getNodeMetadata, registry } from './nodes/registry';
 import type { Workflow, WorkflowNode } from './model';
 import { validateWorkflow } from './validation';
@@ -14,6 +15,7 @@ import ConfigPanel from './editor/ConfigPanel';
 import ActivityPanel from './editor/ActivityPanel';
 import ExecutionInspector from './editor/ExecutionInspector';
 import WorkflowTransfer from './editor/WorkflowTransfer';
+import CredentialsPanel from './editor/CredentialsPanel';
 import { useExecution } from './editor/useExecution';
 import KeyboardHelp from './editor/KeyboardHelp';
 
@@ -41,6 +43,7 @@ function uid() {
 
 export default function App() {
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
+  const [credentials, setCredentials] = useState<CredentialSummary[]>([]);
   const [workflow, setWorkflow] = useState<Workflow>();
   const [nodes, setNodes, onNodesChange] = useNodesState<AppNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -109,7 +112,8 @@ export default function App() {
   };
 
   const refreshList = useCallback(async () => setWorkflows(await api.list()), []);
-  useEffect(() => { refreshList().then(() => setLoaded(true)).catch(error => setMessage(String(error))); }, [refreshList]);
+  const refreshCredentials = useCallback(async () => setCredentials(await api.credentials()), []);
+  useEffect(() => { Promise.all([refreshList(), refreshCredentials()]).then(() => setLoaded(true)).catch(error => setMessage(String(error))); }, [refreshList, refreshCredentials]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => { if (dirty) { event.preventDefault(); event.returnValue = ''; } };
     window.addEventListener('beforeunload', warn);
@@ -176,6 +180,14 @@ export default function App() {
   const patchNode = (patch: Partial<WorkflowNode>) => {
     setNodes(current => current.map(node => node.id === selectedNodeId ? { ...node, data: { node: { ...node.data.node, ...patch } } } : node));
     changed();
+  };
+  const createCredential = async (input: { name: string; type: CredentialType; data: CredentialPayload }) => {
+    await api.createCredential(input);
+    await refreshCredentials();
+  };
+  const deleteCredential = async (id: string) => {
+    await api.deleteCredential(id);
+    await refreshCredentials();
   };
 
   return (
@@ -274,6 +286,7 @@ export default function App() {
           <div className="ewe-inspector">
             {workflow && <ActivityPanel items={activityEvents} status={execution?.status} />}
             {workflow && <ExecutionInspector workflowId={workflow.id} current={execution} />}
+            <CredentialsPanel credentials={credentials} onCreate={createCredential} onDelete={deleteCredential} />
             <aside className="ewe-palette">
               <h2>Node library</h2>
               <input aria-label="Search nodes" placeholder="Search nodes…" value={query} onChange={event => setQuery(event.target.value)} />
@@ -281,8 +294,9 @@ export default function App() {
                 <span>{def.icon}</span> {def.name}<small>+</small>
               </button>)}
             </aside>
-            {selectedNode ? <ConfigPanel node={selectedNode} def={getNodeMetadata(selectedNode.type)!}
+            {selectedNode ? <ConfigPanel node={selectedNode} def={getNodeMetadata(selectedNode.type)!} credentials={credentials}
               onParameterChange={(key, value) => patchNode({ parameters: { ...selectedNode.parameters, [key]: value } })}
+              onCredentialChange={(key, credentialId) => patchNode({ credentials: { ...selectedNode.credentials, [key]: credentialId } })}
               onNameChange={name => patchNode({ name })} onDelete={deleteSelected} /> : <p className="config-hint">Select a node to configure it.<br /><br />Connect: click an output, then an input.<br />Disconnect: select an edge, press <kbd>Delete</kbd>.<br />Pan: drag the canvas. Zoom: scroll.</p>}
           </div>
         </div>
