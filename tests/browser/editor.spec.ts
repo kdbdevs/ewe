@@ -10,6 +10,8 @@ async function connect(page: Page, source: string, target: string) {
 
 test('template gallery creates a starter workflow and workspace search finds it', async ({ page, request }) => {
   await page.goto('/');
+  await expect(page.getByTestId('template-gallery')).toHaveCount(0);
+  await page.getByTestId('template-toggle').click();
   await expect(page.getByTestId('template-gallery')).toBeVisible();
   await page.getByTestId('template-landing-page-intake').click();
   await expect(page.getByTestId('workflow-name')).toHaveValue('Landing Page Intake');
@@ -21,6 +23,25 @@ test('template gallery creates a starter workflow and workspace search finds it'
   const created = workflows.find((item: { name: string }) => item.name === 'Landing Page Intake');
   expect(created.nodes).toHaveLength(4);
   expect(created.connections).toHaveLength(3);
+});
+
+test('node context menu can configure, duplicate and delete nodes', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('create-workflow').click();
+  await page.getByTestId('add-manualTrigger').click();
+  await expect(page.getByTestId('canvas-node')).toHaveCount(1);
+  const firstId = await page.locator('.react-flow__node').first().getAttribute('data-id');
+  await page.locator(`[data-id="${firstId}"]`).click({ button: 'right' });
+  await expect(page.getByTestId('node-context-menu')).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Configure' }).click();
+  await expect(page.getByTestId('param-note')).toBeVisible();
+  await page.locator(`[data-id="${firstId}"]`).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Duplicate' }).click();
+  await expect(page.getByTestId('canvas-node')).toHaveCount(2);
+  const duplicateId = await page.locator('.react-flow__node').last().getAttribute('data-id');
+  await page.locator(`[data-id="${duplicateId}"]`).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
+  await expect(page.getByTestId('canvas-node')).toHaveCount(1);
 });
 
 test('three configured nodes and edges restore identically; deletion leaves no dangling edges', async ({ page, request }, info) => {

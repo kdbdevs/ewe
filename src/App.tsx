@@ -60,6 +60,8 @@ export default function App() {
   const [workflowQuery, setWorkflowQuery] = useState('');
   const [nodeQuery, setNodeQuery] = useState('');
   const [helpOpen, setHelpOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [nodeMenu, setNodeMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
   const suppressViewportDirty = useRef(false);
   const { execution, events: activityEvents, error: executionError, start, stop } = useExecution(workflow?.id);
   const executing = execution?.status === 'running';
@@ -221,11 +223,30 @@ export default function App() {
     setNodes(current => [...current, { id: node.id, type: 'ewe', position: node.position, data: { node } }]);
     setSelectedNodeId(node.id); changed();
   };
+  const deleteNode = (nodeId: string) => {
+    setNodes(current => current.filter(node => node.id !== nodeId));
+    setEdges(current => current.filter(edge => edge.source !== nodeId && edge.target !== nodeId));
+    if (selectedNodeId === nodeId) setSelectedNodeId(undefined);
+    setNodeMenu(null);
+    changed();
+  };
+  const duplicateNode = (nodeId: string) => {
+    const source = nodes.find(node => node.id === nodeId);
+    if (!source) return;
+    const copy: WorkflowNode = {
+      ...structuredClone(source.data.node),
+      id: uid(),
+      name: `${source.data.node.name} copy`,
+      position: { x: source.position.x + 36, y: source.position.y + 36 },
+    };
+    setNodes(current => [...current, { id: copy.id, type: 'ewe', position: copy.position, data: { node: copy } }]);
+    setSelectedNodeId(copy.id);
+    setNodeMenu(null);
+    changed();
+  };
   const deleteSelected = () => {
     if (!selectedNodeId) return;
-    setNodes(current => current.filter(node => node.id !== selectedNodeId));
-    setEdges(current => current.filter(edge => edge.source !== selectedNodeId && edge.target !== selectedNodeId));
-    setSelectedNodeId(undefined); changed();
+    deleteNode(selectedNodeId);
   };
   const onConnect = (connection: Connection) => {
     if (connection.source === connection.target) return;
@@ -254,17 +275,24 @@ export default function App() {
         <button type="button" data-testid="create-workflow" disabled={!loaded || busy} onClick={create}>+ New workflow</button>
         <WorkflowTransfer workflow={workflow} disabled={busy}
           mayLeave={mayLeave} onMessage={setMessage} onImported={async next => { await refreshList(); load(next); }} />
-        <h2 className="section-label">TEMPLATES</h2>
-        <div className="template-gallery" data-testid="template-gallery">
-          {workflowTemplates.map(template => (
-            <button key={template.id} type="button" data-testid={`template-${template.id}`} disabled={!loaded || busy}
-              onClick={() => createFromTemplate(template.id)} title={template.summary}>
-              <span>{template.useCase}</span>
-              <strong>{template.name}</strong>
-              <small>{template.summary}</small>
-            </button>
-          ))}
+        <div className="template-section-head">
+          <h2 className="section-label">TEMPLATES</h2>
+          <button type="button" data-testid="template-toggle" aria-label={`${templatesOpen ? 'Hide' : 'Show'} templates`} aria-expanded={templatesOpen} aria-controls="template-gallery" onClick={() => setTemplatesOpen(open => !open)}>
+            {templatesOpen ? 'Hide' : 'Show'}
+          </button>
         </div>
+        {templatesOpen ? (
+          <div className="template-gallery" id="template-gallery" data-testid="template-gallery">
+            {workflowTemplates.map(template => (
+              <button key={template.id} type="button" data-testid={`template-${template.id}`} disabled={!loaded || busy}
+                onClick={() => createFromTemplate(template.id)} title={template.summary}>
+                <span>{template.useCase}</span>
+                <strong>{template.name}</strong>
+                <small>{template.summary}</small>
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div className="workflow-section-head">
           <h2 className="section-label">WORKSPACE</h2>
           <span>{workflows.length}</span>
@@ -332,7 +360,14 @@ export default function App() {
               }}
               onEdgesChange={changes => { onEdgesChange(changes); if (changes.some(change => change.type === 'remove')) changed(); }}
               onConnect={onConnect} isValidConnection={connection => connection.source !== connection.target}
-              onNodeClick={(_, node) => setSelectedNodeId(node.id)} onPaneClick={() => setSelectedNodeId(undefined)}
+              onNodeClick={(_, node) => { setSelectedNodeId(node.id); setNodeMenu(null); }}
+              onNodeContextMenu={(event, node) => {
+                event.preventDefault();
+                setSelectedNodeId(node.id);
+                setNodeMenu({ nodeId: node.id, x: event.clientX, y: event.clientY });
+              }}
+              onPaneClick={() => { setSelectedNodeId(undefined); setNodeMenu(null); }}
+              onMoveStart={() => setNodeMenu(null)}
               viewport={viewport} onViewportChange={setViewport} onMoveEnd={event => {
                 if (!event) return;
                 if (suppressViewportDirty.current) { suppressViewportDirty.current = false; return; }
@@ -385,6 +420,13 @@ export default function App() {
           <button type="button" className="ewe-kbd-help" onClick={() => setHelpOpen(true)} aria-label="Show keyboard shortcuts"><kbd>?</kbd> Shortcuts</button>
         </footer>
       </main>
+      {nodeMenu ? (
+        <div className="node-context-menu" role="menu" style={{ left: nodeMenu.x, top: nodeMenu.y }} data-testid="node-context-menu">
+          <button type="button" role="menuitem" onClick={() => { setSelectedNodeId(nodeMenu.nodeId); setNodeMenu(null); }}>Configure</button>
+          <button type="button" role="menuitem" onClick={() => duplicateNode(nodeMenu.nodeId)}>Duplicate</button>
+          <button type="button" role="menuitem" className="danger" onClick={() => deleteNode(nodeMenu.nodeId)}>Delete</button>
+        </div>
+      ) : null}
       <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
