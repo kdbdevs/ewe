@@ -394,6 +394,21 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
 .draft-badge.is-dirty { background: var(--warn-soft); color: var(--warn); border-color: #6b5a1f; }
 .ewe-stop { margin-left: auto; color: var(--err); border-color: #5e3036; background: #2a1d22; }
 .ewe-stop:hover:not(:disabled) { background: #3a252c; border-color: #7a454f; }
+.run-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 72px;
+}
+.run-icon {
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid currentColor;
+  transform: translateX(1px);
+}
 .ewe-toolbar .primary { margin-left: 0; min-width: 92px; }
 
 .ewe-notice {
@@ -1019,7 +1034,11 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
   gap: 10px;
   padding-bottom: 9px;
   border-bottom: 1px solid #343434;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
 }
+.quick-config-popover header:active { cursor: grabbing; }
 .quick-config-icon {
   display: grid;
   place-items: center;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent } from 'react';
 import {
   Background, BackgroundVariant, Controls, MarkerType, MiniMap, Panel, ReactFlow, addEdge,
   useEdgesState, useNodesState, type Connection, type Edge, type Node, type Viewport,
@@ -78,6 +78,10 @@ function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
+const quickConfigMargin = 14;
+const quickConfigWidth = 360;
+const quickConfigHeight = 620;
+
 export default function App() {
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
   const [credentials, setCredentials] = useState<CredentialSummary[]>([]);
@@ -105,6 +109,7 @@ export default function App() {
   const [nodePicker, setNodePicker] = useState<NodePickerContext | null>(null);
   const [miniMapOpen, setMiniMapOpen] = useState(true);
   const suppressViewportDirty = useRef(false);
+  const quickConfigDrag = useRef<{ offsetX: number; offsetY: number } | null>(null);
   const { execution, events: activityEvents, error: executionError, start, stop } = useExecution(workflow?.id);
   const executing = execution?.status === 'running';
   const busy = saving || executing;
@@ -430,6 +435,41 @@ export default function App() {
     setNodeMenu(null);
     window.requestAnimationFrame(() => document.querySelector('[data-testid="config-panel"]')?.scrollIntoView({ block: 'nearest' }));
   };
+  const clampQuickConfigPosition = useCallback((x: number, y: number) => {
+    if (typeof window === 'undefined') return { x, y };
+    const width = Math.min(quickConfigWidth, window.innerWidth - quickConfigMargin * 2);
+    const height = Math.min(quickConfigHeight, window.innerHeight - quickConfigMargin * 2);
+    return {
+      x: Math.max(quickConfigMargin, Math.min(x, window.innerWidth - width - quickConfigMargin)),
+      y: Math.max(quickConfigMargin, Math.min(y, window.innerHeight - height - quickConfigMargin)),
+    };
+  }, []);
+  const openQuickConfig = useCallback((menu: { nodeId: string; x: number; y: number }) => {
+    const position = clampQuickConfigPosition(menu.x, menu.y);
+    setQuickConfig({ nodeId: menu.nodeId, ...position });
+    setNodeMenu(null);
+  }, [clampQuickConfigPosition]);
+  const startQuickConfigDrag = useCallback((event: PointerEvent<HTMLElement>) => {
+    if (!quickConfig) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('button, input, select, textarea')) return;
+    quickConfigDrag.current = {
+      offsetX: event.clientX - quickConfig.x,
+      offsetY: event.clientY - quickConfig.y,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  }, [quickConfig]);
+  const moveQuickConfig = useCallback((event: PointerEvent<HTMLElement>) => {
+    const drag = quickConfigDrag.current;
+    if (!drag) return;
+    const position = clampQuickConfigPosition(event.clientX - drag.offsetX, event.clientY - drag.offsetY);
+    setQuickConfig(current => current ? { ...current, ...position } : current);
+  }, [clampQuickConfigPosition]);
+  const stopQuickConfigDrag = useCallback((event: PointerEvent<HTMLElement>) => {
+    quickConfigDrag.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }, []);
   const patchNode = (patch: Partial<WorkflowNode>) => {
     setNodes(current => current.map(node => node.id === selectedNodeId ? { ...node, data: { node: { ...node.data.node, ...patch } } } : node));
     changed();
@@ -522,7 +562,10 @@ export default function App() {
             onChange={event => { if (workflow) { setWorkflow({ ...workflow, name: event.target.value }); changed(); } }} />
           <span className={`draft-badge${dirty ? ' is-dirty' : ''}`}>{dirty ? 'UNSAVED' : 'DRAFT'}</span>
           {executing ? <button type="button" className="ewe-stop" data-testid="stop-workflow" onClick={() => void run(stop)}>Stop</button> : null}
-          <button type="button" data-testid="run-workflow" disabled={!workflow || busy || !nodes.some(node => node.data.node.type === 'manualTrigger')} onClick={execute}>Run</button>
+          <button type="button" className="run-button" data-testid="run-workflow" disabled={!workflow || busy || !nodes.some(node => node.data.node.type === 'manualTrigger')} onClick={execute}>
+            <span className="run-icon" aria-hidden="true" />
+            Run
+          </button>
           <button className="primary" type="button" data-testid="save-workflow" disabled={!workflow || busy} onClick={save}>{busy ? 'Working…' : 'Save'}</button>
           <button type="button" aria-label="Keyboard shortcuts" className="ewe-help-btn" data-testid="keyboard-help-toggle" onClick={() => setHelpOpen(current => !current)}>?</button>
         </header>
@@ -640,7 +683,7 @@ export default function App() {
       </main>
       {nodeMenu ? (
         <div className="node-context-menu" role="menu" style={{ left: nodeMenu.x, top: nodeMenu.y }} data-testid="node-context-menu">
-          <button type="button" role="menuitem" onClick={() => { setQuickConfig({ ...nodeMenu }); setNodeMenu(null); }}>Quick config</button>
+          <button type="button" role="menuitem" onClick={() => openQuickConfig(nodeMenu)}>Quick config</button>
           <button type="button" role="menuitem" onClick={() => openNodePicker({ mode: 'after-node', sourceId: nodeMenu.nodeId })}>Add next node</button>
           <button type="button" role="menuitem" onClick={() => duplicateNode(nodeMenu.nodeId)}>Duplicate</button>
           <button type="button" role="menuitem" className="danger" onClick={() => deleteNode(nodeMenu.nodeId)}>Delete</button>
@@ -648,7 +691,13 @@ export default function App() {
       ) : null}
       {quickConfig && quickConfigNode && quickConfigDef ? (
         <section className="quick-config-popover" style={{ left: quickConfig.x, top: quickConfig.y }} data-testid="quick-config-popover">
-          <header>
+          <header
+            data-testid="quick-config-drag"
+            onPointerDown={startQuickConfigDrag}
+            onPointerMove={moveQuickConfig}
+            onPointerUp={stopQuickConfigDrag}
+            onPointerCancel={stopQuickConfigDrag}
+          >
             <span className="quick-config-icon">{quickConfigDef.icon}</span>
             <div>
               <strong>Quick config</strong>

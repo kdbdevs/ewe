@@ -45,6 +45,15 @@ test('node context menu can quick-configure, duplicate and delete nodes', async 
   await expect(page.getByTestId('node-context-menu')).toBeVisible();
   await page.getByRole('menuitem', { name: 'Quick config' }).click();
   await expect(page.getByTestId('quick-config-popover')).toBeVisible();
+  const quickConfigBox = (await page.getByTestId('quick-config-popover').boundingBox())!;
+  const quickConfigHeaderBox = (await page.getByTestId('quick-config-drag').boundingBox())!;
+  await page.mouse.move(quickConfigHeaderBox.x + 120, quickConfigHeaderBox.y + 18);
+  await page.mouse.down();
+  await page.mouse.move(quickConfigHeaderBox.x + 190, quickConfigHeaderBox.y + 66, { steps: 8 });
+  await page.mouse.up();
+  const movedQuickConfigBox = (await page.getByTestId('quick-config-popover').boundingBox())!;
+  expect(movedQuickConfigBox.x).toBeGreaterThan(quickConfigBox.x + 40);
+  expect(movedQuickConfigBox.y).toBeGreaterThan(quickConfigBox.y + 30);
   await page.getByTestId('quick-config-popover').getByLabel('Note').fill('Configured from quick popover');
   await page.getByRole('button', { name: 'Open full config' }).click();
   await expect(page.getByTestId('param-note')).toHaveValue('Configured from quick popover');
