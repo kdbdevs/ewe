@@ -136,7 +136,7 @@ export default function App() {
       ...edge,
       animated: false,
       className: `ewe-edge ewe-edge-${status}`,
-      markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+      markerEnd: status === 'running' ? undefined : { type: MarkerType.ArrowClosed, width: 18, height: 18 },
       type: 'straight',
     };
   }), [edges, executionByNode]);
