@@ -66,7 +66,7 @@ export default function ExecutionInspector({ workflowId, current }: InspectorPro
             <div>
               <div className="exec-meta">
                 <span className={`exec-status-chip ${STATUS_CLASS[record.status] ?? ''}`}>{record.status}</span>
-                <span>Duration: <b><span data-testid="inspect-duration">{record.duration}</span> ms</b></span>
+                <span>Duration: <b><span data-testid="inspect-duration">{record.duration} ms</span></b></span>
                 <span>Started: <b>{record.startedAt || 'Not started'}</b></span>
                 <span>Finished: <b>{record.finishedAt || 'Not finished'}</b></span>
               </div>

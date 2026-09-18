@@ -15,6 +15,7 @@
   --bg-2: #161b27;            /* toolbar, inspector header */
   --bg-3: #1c2231;            /* hover, raised controls */
   --bg-input: #0f131c;
+  --canvas: #100b17;
 
   /* Lines */
   --line: #232b3c;
@@ -26,11 +27,11 @@
   --text-2: #aab4cc;
   --text-3: #76829c;
 
-  /* Accent (indigo) */
-  --accent: #7c8cff;
-  --accent-2: #a5b2ff;
-  --accent-soft: #7c8cff1f;
-  --accent-fg: #131725;
+  /* Accent — n8n-style orange, used sparingly */
+  --accent: #ff6d00;
+  --accent-2: #ff9f43;
+  --accent-soft: #ff6d001f;
+  --accent-fg: #160d06;
 
   /* Semantic */
   --ok: #4ade80;
@@ -50,7 +51,7 @@
   --sh-1: 0 1px 2px #0006, 0 2px 6px #0004;
   --sh-2: 0 2px 4px #0005, 0 8px 24px #0006;
   --sh-3: 0 8px 16px #0007, 0 24px 56px #0009;
-  --sh-glow: 0 0 0 1px var(--accent), 0 0 24px #7c8cff33;
+  --sh-glow: 0 0 0 1px var(--accent), 0 0 24px #ff6d0033;
 
   /* Motion */
   --ease: cubic-bezier(.22, .61, .36, 1);
@@ -183,7 +184,11 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
 .ewe-canvas { flex: 1; min-width: 0; position: relative; }
 
 /* React Flow overrides */
-.react-flow { background: var(--bg-0); }
+.react-flow {
+  background:
+    radial-gradient(circle at 18px 18px, rgba(255,255,255,.035) 1px, transparent 1px) 0 0/22px 22px,
+    linear-gradient(180deg, #100b17, #0c0911);
+}
 .react-flow__background { opacity: .85; }
 .ewe-inspector {
   width: 292px; flex-shrink: 0; overflow-y: auto;
@@ -237,60 +242,188 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
    Canvas nodes
    ──────────────────────────────────────────────────────────── */
 .ewe-node {
-  display: flex; align-items: center; width: 212px; height: 82px; gap: 13px; padding: 15px;
-  border: 1px solid var(--line-strong); background: linear-gradient(180deg, #232b3d, #1a2030);
-  border-radius: var(--r-lg);
-  box-shadow: var(--sh-2);
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+  position: relative;
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  width: 242px;
+  min-height: 106px;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid #4a4354;
+  background: #24212b;
+  border-radius: 10px;
+  box-shadow: 0 2px 0 rgba(255,255,255,.03) inset, 0 16px 38px rgba(0,0,0,.34);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease), background var(--dur) var(--ease);
 }
-.react-flow__node:hover .ewe-node { border-color: #44527a; transform: translateY(-1px); }
+.ewe-node::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  border: 1px solid transparent;
+  transition: opacity var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.react-flow__node:hover .ewe-node { border-color: #6b6178; transform: translateY(-2px) scale(1.01); background: #292631; }
+.ewe-node-topline { display: flex; flex-direction: column; align-items: center; gap: 9px; }
 .ewe-node-icon {
-  display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0;
-  color: var(--accent-2); font-size: 19px;
-  background: var(--accent-soft); border-radius: var(--r-sm); border: 1px solid #7c8cff2e;
+  display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0;
+  color: var(--accent-2); font-size: 20px;
+  background: #1b1722; border-radius: 9px; border: 1px solid #5f536b;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
 }
-.ewe-node-name { font-size: 13.5px; font-weight: 650; max-width: 135px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ewe-node-type { color: var(--text-3); font-size: 9.5px; margin-top: 4px; letter-spacing: .05em; text-transform: uppercase; font-weight: 600; }
+.ewe-node-port-count {
+  display: grid;
+  gap: 3px;
+  color: #9a93a6;
+  font-size: 9px;
+  line-height: 1.15;
+  text-align: center;
+}
+.ewe-node-body { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.ewe-node-name { font-size: 14px; font-weight: 700; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -.01em; }
+.ewe-node-type { color: #aaa2b5; font-size: 10px; margin-top: 4px; letter-spacing: .04em; text-transform: uppercase; font-weight: 650; }
+.ewe-node-runline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 10px;
+  min-height: 19px;
+}
+.ewe-node-runline small,
+.ewe-node-runline span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  color: #b9b2c5;
+  background: #18141f;
+  border: 1px solid #3e3748;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 9px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  font-weight: 750;
+}
+.ewe-node-runline.is-idle span { color: #837b8e; }
 
 /* Status ring + pulse for running */
-[data-status="running"] { border-color: var(--warn); box-shadow: 0 0 0 2px #fbbf2440, var(--sh-2); }
-[data-status="running"] .ewe-node-icon { animation: pulse 1.4s var(--ease) infinite; }
+[data-status="running"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(255,109,0,.38), 0 0 34px rgba(255,109,0,.18), 0 16px 42px rgba(0,0,0,.42);
+}
+[data-status="running"]::before {
+  opacity: 1;
+  border-color: rgba(255,109,0,.68);
+  animation: running-border 1.8s var(--ease) infinite;
+}
+[data-status="running"] .ewe-node-icon { color: #fff0e1; background: #3a2417; border-color: rgba(255,109,0,.58); animation: pulse 1.4s var(--ease) infinite; }
 @keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 0 #fbbf2455; }
-  50% { box-shadow: 0 0 0 7px #fbbf2400; }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,109,0,.38); }
+  50% { box-shadow: 0 0 0 8px rgba(255,109,0,0); }
+}
+@keyframes running-border {
+  0%, 100% { transform: scale(1); opacity: .78; }
+  50% { transform: scale(1.025); opacity: .25; }
 }
 [data-status="success"] { border-color: #4ade8066; }
 [data-status="success"] .ewe-node-icon { background: var(--ok-soft); color: var(--ok); border-color: #4ade8033; }
 [data-status="error"], [data-status="cancelled"] { border-color: #fb718566; }
 [data-status="error"] .ewe-node-icon, [data-status="cancelled"] .ewe-node-icon { background: var(--err-soft); color: var(--err); border-color: #fb718533; }
-[data-status="skipped"] { opacity: .42; }
+[data-status="skipped"] { opacity: .68; }
 [data-testid="node-status"] {
   display: inline-flex; align-items: center; gap: 4px;
-  color: var(--text-3); font-size: 9px; margin-top: 5px;
+  color: var(--text-3);
   letter-spacing: .08em; text-transform: uppercase; font-weight: 700;
 }
 [data-testid="node-status"]::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
-[data-status="running"] [data-testid="node-status"] { color: var(--warn); }
+[data-status="running"] [data-testid="node-status"] { color: var(--accent-2); border-color: rgba(255,109,0,.45); background: rgba(255,109,0,.13); }
 [data-status="success"] [data-testid="node-status"] { color: var(--ok); }
 [data-status="error"] [data-testid="node-status"], [data-status="cancelled"] [data-testid="node-status"] { color: var(--err); }
 
-.react-flow__node.selected .ewe-node { border-color: var(--accent); box-shadow: var(--sh-glow); }
-.react-flow__handle { width: 12px; height: 12px; background: var(--accent); border: 3px solid #1a2030; border-radius: 50%; transition: transform var(--dur) var(--ease); }
-.react-flow__handle:hover { transform: scale(1.25); }
-.react-flow__edge-path { stroke: #8f9fff; stroke-width: 2; }
-.react-flow__edge.selected .react-flow__edge-path { stroke: var(--warn); stroke-width: 3; }
+.react-flow__node.selected .ewe-node { border-color: var(--accent); box-shadow: var(--sh-glow), 0 16px 42px rgba(0,0,0,.42); }
+.react-flow__handle {
+  width: 13px; height: 13px; background: #b9b2c5; border: 3px solid #24212b;
+  border-radius: 50%; transition: transform var(--dur) var(--ease), background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  box-shadow: 0 0 0 1px #655c70;
+}
+.react-flow__handle-left { left: -7px; }
+.react-flow__handle-right { right: -7px; }
+.react-flow__handle:hover { transform: scale(1.35); background: var(--accent); box-shadow: 0 0 0 5px rgba(255,109,0,.16); }
+.react-flow__edge-path { stroke: #80778e; stroke-width: 2.1; transition: stroke var(--dur) var(--ease), stroke-width var(--dur) var(--ease); }
+.ewe-edge-success .react-flow__edge-path { stroke: #46d47d; }
+.ewe-edge-error .react-flow__edge-path { stroke: #ff5a6a; }
+.ewe-edge-skipped .react-flow__edge-path { stroke: #554e60; stroke-dasharray: 5 6; }
+.ewe-edge-running .react-flow__edge-path {
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-dasharray: 9 7;
+  animation: edge-flow 720ms linear infinite;
+  filter: drop-shadow(0 0 7px rgba(255,109,0,.44));
+}
+.react-flow__edge.selected .react-flow__edge-path { stroke: var(--accent-2); stroke-width: 3; }
+.react-flow__edge .react-flow__edge-textbg { fill: #15111b; }
+.react-flow__edge .react-flow__edge-text { fill: #d6cfdf; font-size: 10px; font-weight: 700; }
+@keyframes edge-flow { to { stroke-dashoffset: -16; } }
 .react-flow__controls { box-shadow: var(--sh-2); border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--line); }
 .react-flow__controls button { background: var(--bg-2); border-color: var(--line); fill: var(--text-2); color: var(--text-2); border-radius: 0; }
 .react-flow__controls button:hover:not(:disabled) { background: var(--bg-3); fill: var(--text); color: var(--text); }
+.react-flow__minimap {
+  overflow: hidden;
+  border: 1px solid #40384a;
+  border-radius: 8px;
+  background: #15111b;
+  box-shadow: var(--sh-2);
+}
+.canvas-hud {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  color: #b9b2c5;
+  background: rgba(21,17,27,.88);
+  border: 1px solid #40384a;
+  border-radius: 8px;
+  box-shadow: var(--sh-1);
+  backdrop-filter: blur(8px);
+}
+.canvas-hud strong { color: #f3eef9; font-size: 12px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.canvas-hud span,
+.canvas-hud em {
+  color: #aaa2b5;
+  font-size: 10px;
+  font-style: normal;
+  border-left: 1px solid #40384a;
+  padding-left: 8px;
+}
+.canvas-hud em[data-state="running"] { color: var(--accent-2); }
+.canvas-hud em[data-state="success"] { color: var(--ok); }
+.canvas-hud em[data-state="error"],
+.canvas-hud em[data-state="cancelled"] { color: var(--err); }
 
 /* Empty states */
 .empty-state {
-  pointer-events: none; position: absolute; top: 34%; left: 12%; right: 12%;
+  pointer-events: none; position: absolute; top: 30%; left: 12%; right: 12%;
   text-align: center; color: var(--text-3);
   animation: fade-in var(--dur-slow) var(--ease) both;
+  z-index: 2;
 }
-.empty-state h2 { font-size: 21px; color: var(--text-2); font-weight: 650; letter-spacing: -0.01em; }
-.empty-state p { font-size: 12px; }
+.empty-state-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 13px;
+  color: var(--accent-2);
+  background: rgba(255,109,0,.1);
+  border: 1px solid rgba(255,109,0,.24);
+  border-radius: 12px;
+  font-size: 26px;
+}
+.empty-state h2 { font-size: 22px; color: #efe9f6; font-weight: 750; letter-spacing: -0.01em; margin: 0 0 7px; }
+.empty-state p { font-size: 12.5px; max-width: 520px; margin: 0 auto; line-height: 1.7; }
 @keyframes fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 .ewe-bottom {

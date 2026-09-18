@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Background, BackgroundVariant, Controls, ReactFlow, addEdge,
+  Background, BackgroundVariant, Controls, MarkerType, MiniMap, Panel, ReactFlow, addEdge,
   useEdgesState, useNodesState, type Connection, type Edge, type Node, type Viewport,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -20,6 +20,10 @@ import KeyboardHelp from './editor/KeyboardHelp';
 const nodeTypes = { ewe: EweNode };
 type AppNode = Node<{ node: WorkflowNode }, 'ewe'>;
 const initialViewport = { x: 30, y: 50, zoom: 0.85 };
+const defaultEdgeOptions = {
+  markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+  className: 'ewe-edge',
+};
 const toFlow = (workflow: Workflow) => ({
   nodes: workflow.nodes.map(node => ({ id: node.id, type: 'ewe' as const, position: node.position, data: { node } })),
   edges: workflow.connections.map(edge => ({ id: edge.id, source: edge.source, target: edge.target, sourceHandle: edge.sourcePort, targetHandle: edge.targetPort })),
@@ -48,10 +52,30 @@ export default function App() {
   const [dirty, setDirty] = useState(false);
   const [query, setQuery] = useState('');
   const [helpOpen, setHelpOpen] = useState(false);
+  const suppressViewportDirty = useRef(false);
   const { execution, events: activityEvents, error: executionError, start, stop } = useExecution(workflow?.id);
   const executing = execution?.status === 'running';
   const busy = saving || executing;
-  const displayNodes = useMemo(() => nodes.map(node => ({ ...node, data: { ...node.data, status: execution?.nodeExecutions.find(record => record.nodeId === node.id)?.status } })), [nodes, execution]);
+  const executionByNode = useMemo(() => new Map(execution?.nodeExecutions.map(record => [record.nodeId, record]) ?? []), [execution]);
+  const displayNodes = useMemo(() => nodes.map(node => {
+    const record = executionByNode.get(node.id);
+    return { ...node, data: { ...node.data, status: record?.status, duration: record?.duration, port: record?.port } };
+  }), [nodes, executionByNode]);
+  const displayEdges = useMemo(() => edges.map(edge => {
+    const sourceStatus = executionByNode.get(edge.source)?.status;
+    const targetStatus = executionByNode.get(edge.target)?.status;
+    const status =
+      sourceStatus === 'running' || targetStatus === 'running' ? 'running' :
+      sourceStatus === 'error' || targetStatus === 'error' || sourceStatus === 'cancelled' || targetStatus === 'cancelled' ? 'error' :
+      sourceStatus === 'success' && targetStatus === 'success' ? 'success' :
+      targetStatus === 'skipped' ? 'skipped' : 'idle';
+    return {
+      ...edge,
+      animated: status === 'running',
+      className: `ewe-edge ewe-edge-${status}`,
+      markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+    };
+  }), [edges, executionByNode]);
 
   // ─── Keyboard shortcuts ────────────────────────────────────────
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
@@ -100,6 +124,7 @@ export default function App() {
     finally { setBusy(false); }
   };
   const load = (next: Workflow) => {
+    suppressViewportDirty.current = true;
     setWorkflow(next);
     const flow = toFlow(next);
     setNodes(flow.nodes); setEdges(flow.edges);
@@ -196,12 +221,21 @@ export default function App() {
               </div>
             )}
             {loaded && workflow && nodes.length === 0 && (
-              <div className="empty-state"><h2>A blank canvas. A new idea.</h2><p>Add a node from the library to get started.</p></div>
+              <div className="empty-state">
+                <span className="empty-state-icon">＋</span>
+                <h2>Start with a trigger.</h2>
+                <p>Add a Manual Trigger, Webhook, or Schedule node from the library, then connect actions to build the automation.</p>
+              </div>
             )}
             {loaded && !workflow && (
-              <div className="empty-state"><h2>Your next workflow starts here.</h2><p>Create a workflow to add and connect nodes.</p></div>
+              <div className="empty-state">
+                <span className="empty-state-icon">↯</span>
+                <h2>Your next workflow starts here.</h2>
+                <p>Create or import a workflow to open the automation canvas.</p>
+              </div>
             )}
-            <ReactFlow nodes={displayNodes} edges={edges} nodeTypes={nodeTypes}
+            <ReactFlow nodes={displayNodes} edges={displayEdges} nodeTypes={nodeTypes}
+              defaultEdgeOptions={defaultEdgeOptions}
               onNodesChange={changes => {
                 onNodesChange(changes);
                 const removed = new Set(changes.filter(change => change.type === 'remove').map(change => change.id));
@@ -211,10 +245,30 @@ export default function App() {
               onEdgesChange={changes => { onEdgesChange(changes); if (changes.some(change => change.type === 'remove')) changed(); }}
               onConnect={onConnect} isValidConnection={connection => connection.source !== connection.target}
               onNodeClick={(_, node) => setSelectedNodeId(node.id)} onPaneClick={() => setSelectedNodeId(undefined)}
-              viewport={viewport} onViewportChange={setViewport} onMoveEnd={event => { if (event) changed(); }}
-              minZoom={0.2} maxZoom={2} deleteKeyCode={['Backspace', 'Delete']} colorMode="dark">
-              <Background variant={BackgroundVariant.Dots} gap={24} color="#2a3245" />
-              <Controls showInteractive={false} />
+              viewport={viewport} onViewportChange={setViewport} onMoveEnd={event => {
+                if (!event) return;
+                if (suppressViewportDirty.current) { suppressViewportDirty.current = false; return; }
+                changed();
+              }}
+              minZoom={0.18} maxZoom={2.2} snapToGrid snapGrid={[16, 16]}
+              panOnScroll zoomOnPinch zoomOnScroll selectionOnDrag
+              deleteKeyCode={['Backspace', 'Delete']} colorMode="dark">
+              <Background variant={BackgroundVariant.Dots} gap={22} size={1.25} color="#2d2634" />
+              <Controls showInteractive={false} position="bottom-left" />
+              <MiniMap
+                pannable zoomable
+                position="bottom-right"
+                nodeBorderRadius={10}
+                nodeColor={node => executionByNode.get(node.id)?.status === 'running' ? '#ff6d00' : '#3a3342'}
+                nodeStrokeColor={node => executionByNode.get(node.id)?.status === 'error' ? '#ff5a6a' : '#665d72'}
+                maskColor="rgba(12, 9, 16, .72)"
+              />
+              <Panel position="top-left" className="canvas-hud">
+                <strong>{workflow?.name || 'Workflow'}</strong>
+                <span>{nodes.length} nodes</span>
+                <span>{edges.length} edges</span>
+                {execution?.status ? <em data-state={execution.status}>{execution.status}</em> : null}
+              </Panel>
             </ReactFlow>
           </div>
           <div className="ewe-inspector">
