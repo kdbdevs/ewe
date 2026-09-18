@@ -40,6 +40,17 @@ test('CSS includes Phase 7 polish classes', () => {
   expect(css).toContain('is-result');
 });
 
+test('Config panel includes polished field controls', () => {
+  const src = readFileSync(new URL('../src/editor/ConfigPanel.tsx', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+  expect(src).toContain('SECRET_FIELDS');
+  expect(src).toContain('Format JSON');
+  expect(src).toContain('ewe-config-section');
+  expect(src).toContain('ewe-expression-card');
+  expect(css).toContain('ewe-field-actions');
+  expect(css).toContain('ewe-secret-toggle');
+});
+
 test('Phase 6 AI node fields in registry', async () => {
   const { getNodeMetadata } = await import('../src/nodes/registry');
   const meta = getNodeMetadata('ai');

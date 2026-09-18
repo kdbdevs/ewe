@@ -218,14 +218,192 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
 }
 .ewe-config h2 { margin: 2px 0 6px; }
 .ewe-config p { color: var(--text-2); font-size: 11.5px; line-height: 1.6; margin: 0; }
-.ewe-field { display: flex; flex-direction: column; gap: 6px; margin: 15px 0; }
-.ewe-field > span { font-size: 10.5px; color: var(--text-2); font-weight: 600; letter-spacing: .02em; }
+.ewe-config-ports {
+  display: flex;
+  gap: 6px;
+  margin-top: 9px;
+}
+.ewe-config-ports span {
+  color: #aaa2b5;
+  background: #18141f;
+  border: 1px solid #3e3748;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 750;
+}
+.ewe-config-section {
+  margin-top: 16px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line-soft);
+}
+.ewe-config-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.ewe-config-section-title span {
+  color: #efe9f6;
+  font-size: 11px;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+.ewe-config-section-title small {
+  color: var(--text-3);
+  font-size: 10px;
+}
+.ewe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 13px 0;
+  padding: 10px;
+  background: rgba(18,14,23,.58);
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+.ewe-field:focus-within {
+  border-color: rgba(255,109,0,.34);
+  background: rgba(22,17,29,.82);
+}
+.ewe-field.has-error {
+  border-color: rgba(251,113,133,.38);
+  background: rgba(251,113,133,.07);
+}
+.ewe-field-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 18px;
+}
+.ewe-field-label span,
+.ewe-field-label:first-child {
+  font-size: 10.5px;
+  color: var(--text-2);
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.ewe-field-label em {
+  margin-left: auto;
+  color: #8b8498;
+  background: #211c28;
+  border: 1px solid #3e3748;
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 8.5px;
+  line-height: 1.5;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-style: normal;
+  font-weight: 800;
+}
+.ewe-field-label em + em { margin-left: 0; }
+.ewe-field-label em.is-expression {
+  color: var(--accent-2);
+  border-color: rgba(255,109,0,.35);
+  background: rgba(255,109,0,.1);
+}
+.ewe-field-control-row {
+  display: flex;
+  align-items: stretch;
+  gap: 7px;
+}
+.ewe-field-control-row > input,
+.ewe-field-control-row > select,
+.ewe-field-control-row > textarea {
+  flex: 1;
+  min-width: 0;
+}
+.ewe-field textarea {
+  resize: vertical;
+  min-height: 76px;
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.ewe-field-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 9px;
+  color: var(--text-3);
+  font-size: 10px;
+  line-height: 1.55;
+}
+.ewe-field-meta > span:first-child {
+  min-width: 0;
+}
+.ewe-field-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.ewe-field-actions button,
+.ewe-secret-toggle {
+  min-height: 28px;
+  padding: 4px 7px;
+  color: #cfc8d9;
+  background: #1a1621;
+  border-color: #3e3748;
+  font-size: 10px;
+  font-weight: 750;
+}
+.ewe-field-actions button:hover:not(:disabled),
+.ewe-secret-toggle:hover:not(:disabled) {
+  color: var(--accent-2);
+  border-color: rgba(255,109,0,.4);
+  background: rgba(255,109,0,.08);
+}
 .ewe-field-error { color: var(--err); font-size: 10.5px; display: flex; gap: 5px; align-items: center; }
 .ewe-field-error::before { content: "⚠"; font-size: 10px; }
+.ewe-field-ok {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ok);
+  font-size: 10.5px;
+}
+.ewe-field-ok::before { content: "✓"; font-size: 10px; }
 .ewe-expression-hint {
   color: var(--text-3); font-size: 10.5px; line-height: 1.7; margin: 12px 0 0;
   padding: 9px 11px; background: var(--bg-2); border-radius: var(--r-sm);
   border-left: 2px solid var(--accent);
+}
+.ewe-expression-card {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px;
+  background: #15111b;
+  border: 1px solid #3e3748;
+  border-radius: 8px;
+}
+.ewe-expression-card h3 {
+  margin: 0;
+  color: #efe9f6;
+  font-size: 11px;
+}
+.ewe-expression-card code {
+  display: block;
+  color: #ffd8bd;
+  background: #0f0b15;
+  border: 1px solid #342d3d;
+  border-radius: 6px;
+  padding: 6px 7px;
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ewe-expression-card p {
+  color: var(--text-3);
+  font-size: 10.5px;
 }
 .ewe-danger { margin-top: 14px; color: var(--err); border-color: #5e3036; background: #2a1d22; width: 100%; }
 .ewe-danger:hover:not(:disabled) { background: #3a252c; }
