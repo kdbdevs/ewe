@@ -818,6 +818,10 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
   box-shadow: 0 0 0 4px rgba(255,255,255,.06), 0 14px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
   transform: translateY(-50%) scale(1.06);
 }
+.ewe-node-add-next:active:not(:disabled) {
+  transform: translateY(-50%) scale(1.02);
+  box-shadow: 0 0 0 3px rgba(255,255,255,.05), 0 10px 22px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.05);
+}
 .ewe-node-topline { display: flex; flex-direction: column; align-items: center; gap: 9px; }
 .ewe-node-icon {
   display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0;
