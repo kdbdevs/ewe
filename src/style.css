@@ -753,7 +753,8 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
   display: grid;
   grid-template-columns: 46px 1fr;
   width: 242px;
-  min-height: 106px;
+  height: 106px;
+  box-sizing: border-box;
   gap: 12px;
   padding: 13px 14px;
   border: 1px solid #4a4a4f;
@@ -876,8 +877,14 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
   50% { box-shadow: 0 0 0 8px rgba(255,109,0,0); }
 }
 @keyframes running-border {
-  0%, 100% { transform: scale(1); opacity: .78; }
-  50% { transform: scale(1.025); opacity: .25; }
+  0%, 100% {
+    opacity: .78;
+    box-shadow: 0 0 0 0 rgba(255,109,0,.28);
+  }
+  50% {
+    opacity: .32;
+    box-shadow: 0 0 0 5px rgba(255,109,0,0);
+  }
 }
 [data-status="success"] { border-color: #4ade8066; }
 [data-status="success"] .ewe-node-icon { background: var(--ok-soft); color: var(--ok); border-color: #4ade8033; }
@@ -909,7 +916,7 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
 .ewe-edge-skipped .react-flow__edge-path { stroke: #554e60; stroke-dasharray: 5 6; }
 .ewe-edge-running .react-flow__edge-path {
   stroke: var(--accent);
-  stroke-width: 3;
+  stroke-width: 2.1;
   stroke-dasharray: 8 7;
   animation: edge-flow 760ms linear infinite;
   filter: drop-shadow(0 0 7px rgba(255,109,0,.44));
