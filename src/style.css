@@ -143,6 +143,7 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
 }
 .login-card {
   display: grid;
+  justify-items: center;
   gap: 12px;
   width: min(390px, 100%);
   padding: 26px;
@@ -150,11 +151,13 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
   border: 1px solid #3f3f3f;
   border-radius: 12px;
   box-shadow: var(--sh-3);
+  text-align: center;
 }
 .login-card .brand-mark {
   width: 40px;
   height: 40px;
   font-size: 28px;
+  margin-inline: auto;
 }
 .login-card h1 {
   margin: 0;
@@ -170,6 +173,8 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
 .login-card label {
   display: grid;
   gap: 6px;
+  width: 100%;
+  text-align: left;
 }
 .login-card label span {
   color: var(--text-2);
@@ -179,6 +184,7 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
   text-transform: uppercase;
 }
 .login-card strong[role="alert"] {
+  width: 100%;
   color: var(--err);
   background: var(--err-soft);
   border: 1px solid rgba(251,113,133,.28);
@@ -187,6 +193,7 @@ button.ghost:hover:not(:disabled) { background: var(--bg-3); color: var(--text);
   font-size: 11px;
 }
 .login-card button {
+  width: 100%;
   margin-top: 4px;
 }
 
